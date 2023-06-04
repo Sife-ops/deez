@@ -1,15 +1,24 @@
+use std::collections::HashMap;
+
 use macro_deez_derive::Sugon;
 
 trait MyTrait {
-    fn answer() -> i32 {
-        42
-    }
+    fn to_avmap(&self) -> HashMap<String, String>;
 }
 
-#[derive(Sugon)]
-struct Foo;
+#[derive(Sugon, Debug)]
+struct Foo {
+    primary_id: String,
+    deez: String,
+}
 
 fn main() {
     println!("Hello, world!");
-    println!("{}", Foo::answer())
+
+    let a = Foo {
+        primary_id: format!("AAA"),
+        deez: format!("lol")
+    };
+
+    println!("{:?}", a.to_avmap());
 }
