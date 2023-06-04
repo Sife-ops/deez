@@ -1,6 +1,8 @@
+use darling::FromDeriveInput;
 use proc_macro::{self, TokenStream};
+use proc_macro2::Ident;
 use quote::{quote, ToTokens};
-use syn::{parse_macro_input, DeriveInput};
+use syn::{parse_macro_input, DeriveInput, Expr};
 
 // code references:
 // https://github.com/ex0dus-0x/structmap/blob/main/structmap-derive/src/lib.rs
@@ -16,7 +18,7 @@ use syn::{parse_macro_input, DeriveInput};
 // Null(bool),
 // Ss(::std::vec::Vec<::std::string::String>),
 
-#[proc_macro_derive(DeezMaps)]
+#[proc_macro_derive(ToMap, attributes(deez))]
 pub fn derive(input: TokenStream) -> TokenStream {
     let ast = parse_macro_input!(input as DeriveInput);
 
@@ -26,17 +28,40 @@ pub fn derive(input: TokenStream) -> TokenStream {
     };
 
     let mut inserts = quote! {};
-    for field in &fields {
+    for field in fields.iter() {
         let ident = match field.ident.as_ref() {
             Some(ident) => ident,
             _ => continue,
         };
-        // todo: rename keys
-        let field_name = ident.to_string();
+
         let field_type = match &field.ty {
             syn::Type::Path(tp) => tp.clone().into_token_stream().to_string(),
             _ => continue,
         };
+
+        let mut field_name = ident.to_string();
+
+        // rename
+        // todo: sus af
+        if let Some(fr) = field.attrs.first() {
+            match fr.parse_args().unwrap() {
+                Expr::Assign(ea) => match *ea.right {
+                    Expr::Lit(el) => match el.lit {
+                        syn::Lit::Str(el) => {
+                            let t = el.token().to_string();
+                            let mut c = t.chars();
+                            c.next();
+                            c.next_back();
+                            field_name = c.as_str().to_string();
+                        }
+                        _ => {}
+                    },
+                    _ => {}
+                },
+                _ => {}
+            };
+        }
+
         match field_type.as_ref() {
             "String" => {
                 inserts = quote! {
