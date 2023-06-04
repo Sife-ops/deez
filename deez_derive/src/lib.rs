@@ -42,22 +42,19 @@ pub fn derive(input: TokenStream) -> TokenStream {
         // rename
         // todo: sus af
         if let Some(first) = field.attrs.first() {
-            match first.parse_args().unwrap() {
-                Expr::Assign(ea) => match *ea.right {
-                    Expr::Lit(el) => match el.lit {
-                        syn::Lit::Str(el) => {
-                            let t = el.token().to_string();
+            if let Ok(ex) = first.parse_args::<Expr>() {
+                if let Expr::Assign(ea) = ex {
+                    if let Expr::Lit(el) = *ea.right {
+                        if let syn::Lit::Str(ls) = el.lit {
+                            let t = ls.token().to_string();
                             let mut c = t.chars();
                             c.next();
                             c.next_back();
                             field_name = c.as_str().to_string();
                         }
-                        _ => {}
-                    },
-                    _ => {}
-                },
-                _ => {}
-            };
+                    }
+                }
+            }
         }
 
         match field_type.as_ref() {
