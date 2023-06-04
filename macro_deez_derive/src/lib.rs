@@ -1,9 +1,6 @@
-use std::collections::HashMap;
-
-use aws_sdk_dynamodb::types::AttributeValue;
 use proc_macro::{self, TokenStream};
-use quote::quote;
-use syn::{parse, parse_macro_input, DeriveInput, Ident};
+use quote::{quote, ToTokens};
+use syn::{parse_macro_input, DeriveInput};
 
 #[proc_macro_derive(Sugon)]
 pub fn derive(input: TokenStream) -> TokenStream {
@@ -14,29 +11,50 @@ pub fn derive(input: TokenStream) -> TokenStream {
         _ => panic!("todo"),
     };
 
-    let idents = fields
-        .iter()
-        .filter_map(|field| field.ident.as_ref())
-        .collect::<Vec<&Ident>>();
-
-    let keys = idents
-        .clone()
-        .iter()
-        .map(|ident| ident.to_string())
-        .collect::<Vec<String>>();
+    let mut inserts = quote! {};
+    for field in &fields {
+        let ident = match field.ident.as_ref() {
+            Some(ident) => ident,
+            _ => continue,
+        };
+        // todo: rename keys
+        let field_name = ident.to_string();
+        let field_type = match &field.ty {
+            syn::Type::Path(tp) => tp.clone().into_token_stream().to_string(),
+            _ => continue,
+        };
+        match field_type.as_ref() {
+            "String" => {
+                inserts = quote! {
+                    #inserts
+                    m.insert(#field_name.to_string(), AttributeValue::S(self.#ident.to_string()));
+                };
+            }
+            "bool" => {
+                inserts = quote! {
+                    #inserts
+                    m.insert(#field_name.to_string(), AttributeValue::Bool(self.#ident));
+                };
+            }
+            "usize" | "isize" => {
+                inserts = quote! {
+                    #inserts
+                    m.insert(#field_name.to_string(), AttributeValue::N(self.#ident.to_string()));
+                };
+            }
+            // todo: all other types
+            &_ => {}
+        }
+    }
 
     let name = &ast.ident;
     let (impl_gen, type_gen, where_clause) = ast.generics.split_for_impl();
 
-    // let a = HashMap::new()
-
     let output = quote! {
-        impl #impl_gen MyTrait for #name #type_gen #where_clause {
-            fn to_avmap(&self) -> HashMap<String, String> {
+        impl #impl_gen DeezMaps for #name #type_gen #where_clause {
+            fn to_av_map(&self) -> HashMap<String, AttributeValue> {
                 let mut m = HashMap::new();
-                #(
-                    m.insert(#keys.to_string(), self.#idents.to_string());
-                )*
+                #inserts
                 m
             }
         }

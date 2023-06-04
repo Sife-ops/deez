@@ -1,15 +1,23 @@
 use std::collections::HashMap;
 
+use aws_sdk_dynamodb::types::AttributeValue;
 use macro_deez_derive::Sugon;
 
-trait MyTrait {
-    fn to_avmap(&self) -> HashMap<String, String>;
+trait DeezMaps {
+    fn to_av_map(&self) -> HashMap<String, AttributeValue>;
 }
+
+// #[derive(Debug)]
+// struct Bar {
+//     lmao: String,
+// }
 
 #[derive(Sugon, Debug)]
 struct Foo {
     primary_id: String,
-    deez: String,
+    deez: usize,
+    ligma: bool,
+    // ree: Bar,
 }
 
 fn main() {
@@ -17,8 +25,9 @@ fn main() {
 
     let a = Foo {
         primary_id: format!("AAA"),
-        deez: format!("lol")
+        deez: 3,
+        ligma: true
     };
 
-    println!("{:?}", a.to_avmap());
+    println!("{:?}", a.to_av_map());
 }
