@@ -3,13 +3,6 @@
 version = 3
 
 [[package]]
-name = "macro_deez"
-version = "0.1.0"
-dependencies = [
- "macro_deez_derive",
-]
-
-[[package]]
 name = "macro_deez_derive"
 version = "0.1.0"
 dependencies = [

@@ -1,14 +1,12 @@
-pub fn add(left: usize, right: usize) -> usize {
-    left + right
-}
+use proc_macro::{self, TokenStream};
+use quote::quote;
+use syn::{parse_macro_input, DeriveInput};
 
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn it_works() {
-        let result = add(2, 2);
-        assert_eq!(result, 4);
-    }
+#[proc_macro_derive(Sugon)]
+pub fn derive(input: TokenStream) -> TokenStream {
+    let DeriveInput { ident, .. } = parse_macro_input!(input);
+    let output = quote! {
+        impl MyTrait for #ident {}
+    };
+    output.into()
 }
