@@ -1,6 +1,4 @@
-use darling::FromDeriveInput;
 use proc_macro::{self, TokenStream};
-use proc_macro2::Ident;
 use quote::{quote, ToTokens};
 use syn::{parse_macro_input, DeriveInput, Expr};
 
@@ -43,8 +41,8 @@ pub fn derive(input: TokenStream) -> TokenStream {
 
         // rename
         // todo: sus af
-        if let Some(fr) = field.attrs.first() {
-            match fr.parse_args().unwrap() {
+        if let Some(first) = field.attrs.first() {
+            match first.parse_args().unwrap() {
                 Expr::Assign(ea) => match *ea.right {
                     Expr::Lit(el) => match el.lit {
                         syn::Lit::Str(el) => {
