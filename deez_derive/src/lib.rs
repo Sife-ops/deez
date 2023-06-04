@@ -16,7 +16,7 @@ use syn::{parse_macro_input, DeriveInput, Expr};
 // Null(bool),
 // Ss(::std::vec::Vec<::std::string::String>),
 
-#[proc_macro_derive(ToMap, attributes(deez))]
+#[proc_macro_derive(DeezMaps, attributes(deez))]
 pub fn derive(input: TokenStream) -> TokenStream {
     let ast = parse_macro_input!(input as DeriveInput);
 
@@ -26,6 +26,7 @@ pub fn derive(input: TokenStream) -> TokenStream {
     };
 
     let mut inserts = quote! {};
+    let mut reads = quote! {};
     for field in fields.iter() {
         let ident = match field.ident.as_ref() {
             Some(ident) => ident,
@@ -37,10 +38,12 @@ pub fn derive(input: TokenStream) -> TokenStream {
             _ => continue,
         };
 
-        let mut field_name = ident.to_string();
+        let field_name_original = ident.to_string();
 
         // rename
         // todo: sus af
+        // todo: skips
+        let mut field_name_renamed: Option<String> = None;
         if let Some(first) = field.attrs.first() {
             if let Ok(ex) = first.parse_args::<Expr>() {
                 if let Expr::Assign(ea) = ex {
@@ -50,50 +53,133 @@ pub fn derive(input: TokenStream) -> TokenStream {
                             let mut c = t.chars();
                             c.next();
                             c.next_back();
-                            field_name = c.as_str().to_string();
+                            field_name_renamed = Some(c.as_str().to_string());
                         }
                     }
                 }
             }
         }
 
+        let field_name_dynamo = match field_name_renamed {
+            Some(n) => n,
+            None => field_name_original,
+        };
+
+        // todo: use type enum instead of matching strings
         match field_type.as_ref() {
             "String" => {
                 inserts = quote! {
                     #inserts
-                    m.insert(#field_name.to_string(), AttributeValue::S(self.#ident.to_string()));
+                    m.insert(#field_name_dynamo.to_string(), AttributeValue::S(self.#ident.to_string()));
                 };
+                reads = quote! {
+                    #reads
+                    #ident: m.get(#field_name_dynamo).unwrap().as_s().unwrap().clone(),
+                }
             }
             "bool" => {
                 inserts = quote! {
                     #inserts
-                    m.insert(#field_name.to_string(), AttributeValue::Bool(self.#ident));
+                    m.insert(#field_name_dynamo.to_string(), AttributeValue::Bool(self.#ident));
                 };
+                reads = quote! {
+                    #reads
+                    #ident: m.get(#field_name_dynamo).unwrap().as_bool().unwrap().clone(),
+                }
             }
             // DynamoDB attribute of type Number can store 126-bit integers (or
             // 127-bit unsigned integers, with serious caveats).
             // https://docs.aws.amazon.com/amazondynamodb/latest/developerguide/HowItWorks.NamingRulesDataTypes.html#HowItWorks.DataTypes.Number
-            "usize" | "isize" | "u8" | "i8" | "i16" | "u16" | "i32" | "u32" | "i64" | "u64" => {
+            "usize" | "isize" | "u8" | "i8" | "u16" | "i16" | "u32" | "i32" | "u64" | "i64" => {
                 inserts = quote! {
                     #inserts
-                    m.insert(#field_name.to_string(), AttributeValue::N(self.#ident.to_string()));
+                    m.insert(#field_name_dynamo.to_string(), AttributeValue::N(self.#ident.to_string()));
                 };
+                match field_type.as_ref() {
+                    "usize" => {
+                        reads = quote! {
+                            #reads
+                            #ident: m.get(#field_name_dynamo).unwrap().as_n().unwrap().clone().parse::<usize>().unwrap(),
+                        }
+                    }
+                    "isize" => {
+                        reads = quote! {
+                            #reads
+                            #ident: m.get(#field_name_dynamo).unwrap().as_n().unwrap().clone().parse::<isize>().unwrap(),
+                        }
+                    }
+                    "u8" => {
+                        reads = quote! {
+                            #reads
+                            #ident: m.get(#field_name_dynamo).unwrap().as_n().unwrap().clone().parse::<u8>().unwrap(),
+                        }
+                    }
+                    "i8" => {
+                        reads = quote! {
+                            #reads
+                            #ident: m.get(#field_name_dynamo).unwrap().as_n().unwrap().clone().parse::<i8>().unwrap(),
+                        }
+                    }
+                    "u16" => {
+                        reads = quote! {
+                            #reads
+                            #ident: m.get(#field_name_dynamo).unwrap().as_n().unwrap().clone().parse::<u16>().unwrap(),
+                        }
+                    }
+                    "i16" => {
+                        reads = quote! {
+                            #reads
+                            #ident: m.get(#field_name_dynamo).unwrap().as_n().unwrap().clone().parse::<i16>().unwrap(),
+                        }
+                    }
+                    "u32" => {
+                        reads = quote! {
+                            #reads
+                            #ident: m.get(#field_name_dynamo).unwrap().as_n().unwrap().clone().parse::<u32>().unwrap(),
+                        }
+                    }
+                    "i32" => {
+                        reads = quote! {
+                            #reads
+                            #ident: m.get(#field_name_dynamo).unwrap().as_n().unwrap().clone().parse::<i32>().unwrap(),
+                        }
+                    }
+                    "u64" => {
+                        reads = quote! {
+                            #reads
+                            #ident: m.get(#field_name_dynamo).unwrap().as_n().unwrap().clone().parse::<u64>().unwrap(),
+                        }
+                    }
+                    "i64" => {
+                        reads = quote! {
+                            #reads
+                            #ident: m.get(#field_name_dynamo).unwrap().as_n().unwrap().clone().parse::<i64>().unwrap(),
+                        }
+                    }
+                    &_ => continue, // todo: panic?
+                }
             }
             &_ => continue,
         }
     }
 
     let name = &ast.ident;
-    let (impl_gen, type_gen, where_clause) = ast.generics.split_for_impl();
+    let (ig, tg, wc) = ast.generics.split_for_impl();
 
     let output = quote! {
-        impl #impl_gen DeezMaps for #name #type_gen #where_clause {
+        impl #ig DeezMaps for #name #tg #wc {
             fn to_av_map(&self) -> HashMap<String, AttributeValue> {
                 let mut m = HashMap::new();
                 #inserts
                 m
             }
-            // todo: from_av_map
+            // todo: return Result?
+            fn from_av_map(m: HashMap<String, AttributeValue>) -> Self {
+                #name {
+                    #reads
+                    ..Default::default() // todo: remove default?
+                }
+            }
         }
     };
     output.into()
