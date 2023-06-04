@@ -2,7 +2,21 @@ use proc_macro::{self, TokenStream};
 use quote::{quote, ToTokens};
 use syn::{parse_macro_input, DeriveInput};
 
-#[proc_macro_derive(Sugon)]
+// code references:
+// https://github.com/ex0dus-0x/structmap/blob/main/structmap-derive/src/lib.rs
+// https://github.com/imbolc/rust-derive-macro-guide
+
+// todo: implementation of other dynamodb types
+// https://github.com/awslabs/aws-sdk-rust/blob/main/sdk/dynamodb/src/types/_attribute_value.rs
+// B(::aws_smithy_types::Blob),
+// Bs(::std::vec::Vec<::aws_smithy_types::Blob>),
+// L(::std::vec::Vec<crate::types::AttributeValue>),
+// M(::std::collections::HashMap<::std::string::String, crate::types::AttributeValue>),
+// Ns(::std::vec::Vec<::std::string::String>),
+// Null(bool),
+// Ss(::std::vec::Vec<::std::string::String>),
+
+#[proc_macro_derive(DeezMaps)]
 pub fn derive(input: TokenStream) -> TokenStream {
     let ast = parse_macro_input!(input as DeriveInput);
 
@@ -36,14 +50,16 @@ pub fn derive(input: TokenStream) -> TokenStream {
                     m.insert(#field_name.to_string(), AttributeValue::Bool(self.#ident));
                 };
             }
-            "usize" | "isize" => {
+            // DynamoDB attribute of type Number can store 126-bit integers (or
+            // 127-bit unsigned integers, with serious caveats).
+            // https://docs.aws.amazon.com/amazondynamodb/latest/developerguide/HowItWorks.NamingRulesDataTypes.html#HowItWorks.DataTypes.Number
+            "usize" | "isize" | "u8" | "i8" | "i16" | "u16" | "i32" | "u32" | "i64" | "u64" => {
                 inserts = quote! {
                     #inserts
                     m.insert(#field_name.to_string(), AttributeValue::N(self.#ident.to_string()));
                 };
             }
-            // todo: all other types
-            &_ => {}
+            &_ => continue,
         }
     }
 
