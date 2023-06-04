@@ -1,5 +1,5 @@
 [package]
-name = "macro_deez"
+name = "deez"
 version = "0.1.0"
 edition = "2021"
 
@@ -7,4 +7,4 @@ edition = "2021"
 
 [dependencies]
 aws-sdk-dynamodb = "0.28.0"
-macro_deez_derive = { version = "0.1.0", path = "macro_deez_derive" }
+deez_derive = { version = "0.1.0", path = "deez_derive" }

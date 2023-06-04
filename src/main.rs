@@ -1,7 +1,7 @@
 use std::collections::HashMap;
 
 use aws_sdk_dynamodb::types::AttributeValue;
-use macro_deez_derive::Sugon;
+use deez_derive::Sugon;
 
 trait DeezMaps {
     fn to_av_map(&self) -> HashMap<String, AttributeValue>;
