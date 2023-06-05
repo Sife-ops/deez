@@ -9,10 +9,12 @@ pub enum DeezError {
     #[error("missing key in map: {0}")]
     MapKey(String),
     #[error(transparent)]
-    ParseIntError(#[from] ParseIntError)
+    ParseIntError(#[from] ParseIntError),
+    #[error("invalid composite: {0}")]
+    InvalidComposite(String),
 }
 
-// todo: cringe, don't know what im doing
+// todo: cringed
 impl std::convert::From<&AttributeValue> for DeezError {
     fn from(_: &AttributeValue) -> Self {
         DeezError::AWSAttributeValue(AttributeValueError)
@@ -32,7 +34,7 @@ impl std::error::Error for AttributeValueError {
 
 impl std::fmt::Display for AttributeValueError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "20s")
+        write!(f, "AttributeValue error")
     }
 }
 

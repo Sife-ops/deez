@@ -16,7 +16,7 @@ use syn::{parse_macro_input, DeriveInput, Expr};
 // Null(bool),
 // Ss(::std::vec::Vec<::std::string::String>),
 
-#[proc_macro_derive(DeezMaps, attributes(deez))]
+#[proc_macro_derive(DeezEntity, attributes(deez))]
 pub fn derive(input: TokenStream) -> TokenStream {
     let ast = parse_macro_input!(input as DeriveInput);
 
@@ -64,11 +64,11 @@ pub fn derive(input: TokenStream) -> TokenStream {
             "String" => {
                 inserts = quote! {
                     #inserts
-                    m.insert(#field_name.to_string(), AttributeValue::S(self.#ident.to_string()));
+                    av_map.insert(#field_name.to_string(), AttributeValue::S(self.#ident.to_string()));
                 };
                 reads = quote! {
                     #reads
-                    #ident: m
+                    #ident: av_map
                         .get(#field_name)
                         .ok_or(DeezError::MapKey(#field_name.to_string()))?
                         .as_s()?
@@ -78,11 +78,11 @@ pub fn derive(input: TokenStream) -> TokenStream {
             "bool" => {
                 inserts = quote! {
                     #inserts
-                    m.insert(#field_name.to_string(), AttributeValue::Bool(self.#ident));
+                    av_map.insert(#field_name.to_string(), AttributeValue::Bool(self.#ident));
                 };
                 reads = quote! {
                     #reads
-                    #ident: m
+                    #ident: av_map
                         .get(#field_name)
                         .ok_or(DeezError::MapKey(#field_name.to_string()))?
                         .as_bool()?
@@ -95,13 +95,13 @@ pub fn derive(input: TokenStream) -> TokenStream {
             "usize" | "isize" | "u8" | "i8" | "u16" | "i16" | "u32" | "i32" | "u64" | "i64" => {
                 inserts = quote! {
                     #inserts
-                    m.insert(#field_name.to_string(), AttributeValue::N(self.#ident.to_string()));
+                    av_map.insert(#field_name.to_string(), AttributeValue::N(self.#ident.to_string()));
                 };
                 match field_type.as_ref() {
                     "usize" => {
                         reads = quote! {
                             #reads
-                            #ident: m
+                            #ident: av_map
                                 .get(#field_name)
                                 .ok_or(DeezError::MapKey(#field_name.to_string()))?
                                 .as_n()?
@@ -112,7 +112,7 @@ pub fn derive(input: TokenStream) -> TokenStream {
                     "isize" => {
                         reads = quote! {
                             #reads
-                            #ident: m
+                            #ident: av_map
                                 .get(#field_name)
                                 .ok_or(DeezError::MapKey(#field_name.to_string()))?
                                 .as_n()?
@@ -123,7 +123,7 @@ pub fn derive(input: TokenStream) -> TokenStream {
                     "u8" => {
                         reads = quote! {
                             #reads
-                            #ident: m
+                            #ident: av_map
                                 .get(#field_name)
                                 .ok_or(DeezError::MapKey(#field_name.to_string()))?
                                 .as_n()?
@@ -134,7 +134,7 @@ pub fn derive(input: TokenStream) -> TokenStream {
                     "i8" => {
                         reads = quote! {
                             #reads
-                            #ident: m
+                            #ident: av_map
                                 .get(#field_name)
                                 .ok_or(DeezError::MapKey(#field_name.to_string()))?
                                 .as_n()?
@@ -145,7 +145,7 @@ pub fn derive(input: TokenStream) -> TokenStream {
                     "u16" => {
                         reads = quote! {
                             #reads
-                            #ident: m
+                            #ident: av_map
                                 .get(#field_name)
                                 .ok_or(DeezError::MapKey(#field_name.to_string()))?
                                 .as_n()?
@@ -156,7 +156,7 @@ pub fn derive(input: TokenStream) -> TokenStream {
                     "i16" => {
                         reads = quote! {
                             #reads
-                            #ident: m
+                            #ident: av_map
                                 .get(#field_name)
                                 .ok_or(DeezError::MapKey(#field_name.to_string()))?
                                 .as_n()?
@@ -167,7 +167,7 @@ pub fn derive(input: TokenStream) -> TokenStream {
                     "u32" => {
                         reads = quote! {
                             #reads
-                            #ident: m
+                            #ident: av_map
                                 .get(#field_name)
                                 .ok_or(DeezError::MapKey(#field_name.to_string()))?
                                 .as_n()?
@@ -178,7 +178,7 @@ pub fn derive(input: TokenStream) -> TokenStream {
                     "i32" => {
                         reads = quote! {
                             #reads
-                            #ident: m
+                            #ident: av_map
                                 .get(#field_name)
                                 .ok_or(DeezError::MapKey(#field_name.to_string()))?
                                 .as_n()?
@@ -189,7 +189,7 @@ pub fn derive(input: TokenStream) -> TokenStream {
                     "u64" => {
                         reads = quote! {
                             #reads
-                            #ident: m
+                            #ident: av_map
                                 .get(#field_name)
                                 .ok_or(DeezError::MapKey(#field_name.to_string()))?
                                 .as_n()?
@@ -200,7 +200,7 @@ pub fn derive(input: TokenStream) -> TokenStream {
                     "i64" => {
                         reads = quote! {
                             #reads
-                            #ident: m
+                            #ident: av_map
                                 .get(#field_name)
                                 .ok_or(DeezError::MapKey(#field_name.to_string()))?
                                 .as_n()?
@@ -219,13 +219,35 @@ pub fn derive(input: TokenStream) -> TokenStream {
     let (ig, tg, wc) = ast.generics.split_for_impl();
 
     let output = quote! {
-        impl #ig DeezMaps for #name #tg #wc {
-            fn to_av_map(&self) -> HashMap<String, AttributeValue> {
-                let mut m = HashMap::new();
+        impl #ig DeezEntity for #name #tg #wc {
+            fn to_av_map(&self) -> Result<HashMap<String, AttributeValue>, DeezError> {
+                let mut av_map = HashMap::new();
                 #inserts
-                m
+
+                let index_keys = self.index_keys();
+                for (_, index) in index_keys.iter() {
+                    av_map.insert(
+                        index.partition_key.field.to_string(),
+                        AttributeValue::S(format!(
+                            "${}#{}{}",
+                            self.meta().service,
+                            self.meta().entity,
+                            index.partition_key._join_composite(&av_map)?,
+                        ))
+                    );
+                    av_map.insert(
+                        index.sort_key.field.to_string(),
+                        AttributeValue::S(format!(
+                            "#{}{}",
+                            self.meta().entity,
+                            index.sort_key._join_composite(&av_map)?,
+                        ))
+                    );
+                }
+
+                Ok(av_map)
             }
-            fn from_av_map(m: HashMap<String, AttributeValue>) -> Result<#name, DeezError> {
+            fn from_av_map(av_map: HashMap<String, AttributeValue>) -> Result<#name, DeezError> {
                 Ok(#name {
                     #reads
                     ..Default::default()
