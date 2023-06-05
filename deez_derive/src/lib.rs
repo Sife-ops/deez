@@ -223,7 +223,6 @@ pub fn derive(input: TokenStream) -> TokenStream {
             fn to_av_map(&self) -> Result<HashMap<String, AttributeValue>, DeezError> {
                 let mut av_map = HashMap::new();
                 #inserts
-
                 let index_keys = self.index_keys();
                 for (_, index) in index_keys.iter() {
                     av_map.insert(
@@ -244,7 +243,6 @@ pub fn derive(input: TokenStream) -> TokenStream {
                         ))
                     );
                 }
-
                 Ok(av_map)
             }
             fn from_av_map(av_map: HashMap<String, AttributeValue>) -> Result<#name, DeezError> {

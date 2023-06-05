@@ -1,6 +1,7 @@
 mod error;
 
 use aws_sdk_dynamodb::operation::put_item::builders::PutItemFluentBuilder;
+use aws_sdk_dynamodb::operation::query::builders::QueryFluentBuilder;
 use aws_sdk_dynamodb::types::AttributeValue;
 use aws_sdk_dynamodb::Client;
 pub use deez_derive::DeezEntity;
@@ -13,12 +14,42 @@ pub struct Deez {
 
 impl Deez {
     pub fn put(&self, entity: &impl DeezEntity) -> Result<PutItemFluentBuilder, DeezError> {
-        let m = entity.to_av_map()?;
         Ok(self
             .client
             .put_item()
             .table_name(entity.meta().table)
-            .set_item(Some(m)))
+            .set_item(Some(entity.to_av_map()?)))
+    }
+
+    pub fn query(
+        &self,
+        index: Index,
+        entity: &impl DeezEntity,
+    ) -> Result<QueryFluentBuilder, DeezError> {
+        let index_keys = entity.index_keys();
+        let i = index_keys
+            .get(&index)
+            .ok_or(DeezError::MapKey(index.to_string()))?;
+        let pkf = i.partition_key.field.clone();
+        let skf = i.sort_key.field.clone();
+        // todo: verify the index composites exist in av
+        let av = entity.to_av_map()?;
+
+        let mut request = self
+            .client
+            .query()
+            .table_name(entity.meta().table)
+            .key_condition_expression(format!("#{pkf} = :{pkf} and begins_with(#{skf}, :{skf})"))
+            .expression_attribute_names(format!("#{pkf}"), pkf)
+            .expression_attribute_names(format!("#{skf}"), skf)
+            .expression_attribute_values(format!(":{pkf}"), av.get(pkf).unwrap().clone())
+            .expression_attribute_values(format!(":{skf}"), av.get(skf).unwrap().clone());
+
+        if index != Index::Primary {
+            request = request.index_name(index.to_string());
+        }
+
+        Ok(request)
     }
 }
 
