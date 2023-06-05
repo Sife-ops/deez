@@ -38,12 +38,10 @@ pub fn derive(input: TokenStream) -> TokenStream {
             _ => continue,
         };
 
-        let field_name_original = ident.to_string();
+        let mut field_name = ident.to_string();
 
-        // rename
-        // todo: sus af
-        // todo: skips
-        let mut field_name_renamed: Option<String> = None;
+        // todo: improve on parsing the option attributes, add options for
+        // skipping fields and defining floats
         if let Some(first) = field.attrs.first() {
             if let Ok(ex) = first.parse_args::<Expr>() {
                 if let Expr::Assign(ea) = ex {
@@ -53,38 +51,42 @@ pub fn derive(input: TokenStream) -> TokenStream {
                             let mut c = t.chars();
                             c.next();
                             c.next_back();
-                            field_name_renamed = Some(c.as_str().to_string());
+                            field_name = c.as_str().to_string();
                         }
                     }
                 }
             }
         }
 
-        let field_name_dynamo = match field_name_renamed {
-            Some(n) => n,
-            None => field_name_original,
-        };
-
-        // todo: use type enum instead of matching strings
+        // todo: there may be a syn type that would greatly simplify the
+        // matching of these types
         match field_type.as_ref() {
             "String" => {
                 inserts = quote! {
                     #inserts
-                    m.insert(#field_name_dynamo.to_string(), AttributeValue::S(self.#ident.to_string()));
+                    m.insert(#field_name.to_string(), AttributeValue::S(self.#ident.to_string()));
                 };
                 reads = quote! {
                     #reads
-                    #ident: m.get(#field_name_dynamo).unwrap().as_s().unwrap().clone(),
+                    #ident: m
+                        .get(#field_name)
+                        .ok_or(DeezError::MapKey(#field_name.to_string()))?
+                        .as_s()?
+                        .clone(),
                 }
             }
             "bool" => {
                 inserts = quote! {
                     #inserts
-                    m.insert(#field_name_dynamo.to_string(), AttributeValue::Bool(self.#ident));
+                    m.insert(#field_name.to_string(), AttributeValue::Bool(self.#ident));
                 };
                 reads = quote! {
                     #reads
-                    #ident: m.get(#field_name_dynamo).unwrap().as_bool().unwrap().clone(),
+                    #ident: m
+                        .get(#field_name)
+                        .ok_or(DeezError::MapKey(#field_name.to_string()))?
+                        .as_bool()?
+                        .clone(),
                 }
             }
             // DynamoDB attribute of type Number can store 126-bit integers (or
@@ -93,73 +95,123 @@ pub fn derive(input: TokenStream) -> TokenStream {
             "usize" | "isize" | "u8" | "i8" | "u16" | "i16" | "u32" | "i32" | "u64" | "i64" => {
                 inserts = quote! {
                     #inserts
-                    m.insert(#field_name_dynamo.to_string(), AttributeValue::N(self.#ident.to_string()));
+                    m.insert(#field_name.to_string(), AttributeValue::N(self.#ident.to_string()));
                 };
                 match field_type.as_ref() {
                     "usize" => {
                         reads = quote! {
                             #reads
-                            #ident: m.get(#field_name_dynamo).unwrap().as_n().unwrap().clone().parse::<usize>().unwrap(),
+                            #ident: m
+                                .get(#field_name)
+                                .ok_or(DeezError::MapKey(#field_name.to_string()))?
+                                .as_n()?
+                                .clone()
+                                .parse::<usize>()?,
                         }
                     }
                     "isize" => {
                         reads = quote! {
                             #reads
-                            #ident: m.get(#field_name_dynamo).unwrap().as_n().unwrap().clone().parse::<isize>().unwrap(),
+                            #ident: m
+                                .get(#field_name)
+                                .ok_or(DeezError::MapKey(#field_name.to_string()))?
+                                .as_n()?
+                                .clone()
+                                .parse::<isize>()?,
                         }
                     }
                     "u8" => {
                         reads = quote! {
                             #reads
-                            #ident: m.get(#field_name_dynamo).unwrap().as_n().unwrap().clone().parse::<u8>().unwrap(),
+                            #ident: m
+                                .get(#field_name)
+                                .ok_or(DeezError::MapKey(#field_name.to_string()))?
+                                .as_n()?
+                                .clone()
+                                .parse::<u8>()?,
                         }
                     }
                     "i8" => {
                         reads = quote! {
                             #reads
-                            #ident: m.get(#field_name_dynamo).unwrap().as_n().unwrap().clone().parse::<i8>().unwrap(),
+                            #ident: m
+                                .get(#field_name)
+                                .ok_or(DeezError::MapKey(#field_name.to_string()))?
+                                .as_n()?
+                                .clone()
+                                .parse::<i8>()?,
                         }
                     }
                     "u16" => {
                         reads = quote! {
                             #reads
-                            #ident: m.get(#field_name_dynamo).unwrap().as_n().unwrap().clone().parse::<u16>().unwrap(),
+                            #ident: m
+                                .get(#field_name)
+                                .ok_or(DeezError::MapKey(#field_name.to_string()))?
+                                .as_n()?
+                                .clone()
+                                .parse::<u16>()?,
                         }
                     }
                     "i16" => {
                         reads = quote! {
                             #reads
-                            #ident: m.get(#field_name_dynamo).unwrap().as_n().unwrap().clone().parse::<i16>().unwrap(),
+                            #ident: m
+                                .get(#field_name)
+                                .ok_or(DeezError::MapKey(#field_name.to_string()))?
+                                .as_n()?
+                                .clone()
+                                .parse::<i16>()?,
                         }
                     }
                     "u32" => {
                         reads = quote! {
                             #reads
-                            #ident: m.get(#field_name_dynamo).unwrap().as_n().unwrap().clone().parse::<u32>().unwrap(),
+                            #ident: m
+                                .get(#field_name)
+                                .ok_or(DeezError::MapKey(#field_name.to_string()))?
+                                .as_n()?
+                                .clone()
+                                .parse::<u32>()?,
                         }
                     }
                     "i32" => {
                         reads = quote! {
                             #reads
-                            #ident: m.get(#field_name_dynamo).unwrap().as_n().unwrap().clone().parse::<i32>().unwrap(),
+                            #ident: m
+                                .get(#field_name)
+                                .ok_or(DeezError::MapKey(#field_name.to_string()))?
+                                .as_n()?
+                                .clone()
+                                .parse::<i32>()?,
                         }
                     }
                     "u64" => {
                         reads = quote! {
                             #reads
-                            #ident: m.get(#field_name_dynamo).unwrap().as_n().unwrap().clone().parse::<u64>().unwrap(),
+                            #ident: m
+                                .get(#field_name)
+                                .ok_or(DeezError::MapKey(#field_name.to_string()))?
+                                .as_n()?
+                                .clone()
+                                .parse::<u64>()?,
                         }
                     }
                     "i64" => {
                         reads = quote! {
                             #reads
-                            #ident: m.get(#field_name_dynamo).unwrap().as_n().unwrap().clone().parse::<i64>().unwrap(),
+                            #ident: m
+                                .get(#field_name)
+                                .ok_or(DeezError::MapKey(#field_name.to_string()))?
+                                .as_n()?
+                                .clone()
+                                .parse::<i64>()?,
                         }
                     }
-                    &_ => continue, // todo: panic?
+                    &_ => continue, // todo: what to do if field is skipped
                 }
             }
-            &_ => continue,
+            &_ => continue, // todo: what to do if field is skipped
         }
     }
 
@@ -173,12 +225,11 @@ pub fn derive(input: TokenStream) -> TokenStream {
                 #inserts
                 m
             }
-            // todo: return Result?
-            fn from_av_map(m: HashMap<String, AttributeValue>) -> Self {
-                #name {
+            fn from_av_map(m: HashMap<String, AttributeValue>) -> Result<#name, DeezError> {
+                Ok(#name {
                     #reads
-                    ..Default::default() // todo: remove default?
-                }
+                    ..Default::default()
+                })
             }
         }
     };

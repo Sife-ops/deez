@@ -1,10 +1,15 @@
+mod error;
+
 use aws_sdk_dynamodb::types::AttributeValue;
 pub use deez_derive::DeezMaps;
+use error::DeezError;
 use std::collections::HashMap;
 
 pub trait DeezMaps {
     fn to_av_map(&self) -> HashMap<String, AttributeValue>;
-    fn from_av_map(m: HashMap<String, AttributeValue>) -> Self;
+    fn from_av_map(m: HashMap<String, AttributeValue>) -> Result<Self, DeezError>
+    where
+        Self: Sized;
 }
 
 #[cfg(test)]
@@ -19,6 +24,14 @@ mod tests {
         foo_bool: bool,
         // todo: other types
     }
+
+    // // // fn ligma(a: &HashMap<String, AttributeValue>) -> Result<(), &AttributeValue> {
+    // fn ligma(a: &HashMap<String, AttributeValue>) -> Result<(), DeezError> {
+    //     a.get("foo_string").ok_or(DeezError::MapKey(format!("lol")))?.as_s()?.to_string();
+    //     let b = "32".to_string();
+    //     // let c = b.parse::<usize>()?;
+    //     Ok(())
+    // }
 
     #[test]
     fn t1() {

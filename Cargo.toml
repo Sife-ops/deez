@@ -8,3 +8,4 @@ edition = "2021"
 [dependencies]
 aws-sdk-dynamodb = "0.28.0"
 deez_derive = { version = "0.1.0", path = "deez_derive" }
+thiserror = "1.0.40"
