@@ -1,5 +1,6 @@
 mod error;
 
+use aws_sdk_dynamodb::operation::put_item::builders::PutItemFluentBuilder;
 use aws_sdk_dynamodb::types::AttributeValue;
 use aws_sdk_dynamodb::Client;
 pub use deez_derive::DeezEntity;
@@ -8,6 +9,17 @@ use std::collections::HashMap;
 
 pub struct Deez {
     client: Client,
+}
+
+impl Deez {
+    pub fn put(&self, entity: &impl DeezEntity) -> Result<PutItemFluentBuilder, DeezError> {
+        let m = entity.to_av_map()?;
+        Ok(self
+            .client
+            .put_item()
+            .table_name(entity.meta().table)
+            .set_item(Some(m)))
+    }
 }
 
 #[derive(Debug)]
@@ -52,6 +64,7 @@ impl Key<'_> {
 pub trait DeezMeta {
     fn meta(&self) -> Meta;
     fn index_keys(&self) -> HashMap<Index, IndexKeys>;
+    fn generated() -> Self;
 }
 
 pub trait DeezEntity: DeezMeta {
@@ -153,6 +166,11 @@ mod tests {
                 },
             );
             m
+        }
+        fn generated() -> Self {
+            Foo {
+                ..Default::default()
+            }
         }
     }
 
