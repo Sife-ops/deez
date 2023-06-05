@@ -1,6 +1,6 @@
 use proc_macro::{self, TokenStream};
 use quote::{quote, ToTokens};
-use syn::{parse_macro_input, DeriveInput, Expr};
+use syn::{parse_macro_input, DeriveInput, Expr, Lit};
 
 // code references:
 // https://github.com/ex0dus-0x/structmap/blob/main/structmap-derive/src/lib.rs
@@ -16,59 +16,87 @@ use syn::{parse_macro_input, DeriveInput, Expr};
 // Null(bool),
 // Ss(::std::vec::Vec<::std::string::String>),
 
+fn trim(c: &str) -> &str {
+    let mut d = c.chars();
+    d.next();
+    d.next_back();
+    d.as_str()
+}
+
 #[proc_macro_derive(DeezEntity, attributes(deez))]
 pub fn derive(input: TokenStream) -> TokenStream {
     let ast = parse_macro_input!(input as DeriveInput);
 
     let fields = match ast.data {
         syn::Data::Struct(st) => st.fields,
-        _ => panic!("todo"),
+        _ => panic!("ast.data not a `Struct`"),
     };
 
     let mut inserts = quote! {};
     let mut reads = quote! {};
     for field in fields.iter() {
-        let ident = match field.ident.as_ref() {
-            Some(ident) => ident,
-            _ => continue,
-        };
+        let field_ident = field.ident.as_ref().unwrap();
 
-        let field_type = match &field.ty {
-            syn::Type::Path(tp) => tp.clone().into_token_stream().to_string(),
-            _ => continue,
-        };
+        let mut field_name = field_ident.to_string();
+        let mut field_skip = false;
 
-        let mut field_name = ident.to_string();
-
-        // todo: improve on parsing the option attributes, add options for
-        // skipping fields and defining floats
-        if let Some(first) = field.attrs.first() {
-            if let Ok(ex) = first.parse_args::<Expr>() {
-                if let Expr::Assign(ea) = ex {
-                    if let Expr::Lit(el) = *ea.right {
-                        if let syn::Lit::Str(ls) = el.lit {
-                            let t = ls.token().to_string();
-                            let mut c = t.chars();
-                            c.next();
-                            c.next_back();
-                            field_name = c.as_str().to_string();
+        // todo: sus af, not enough experience with syn
+        // todo: parse floats when reading from the table
+        for attr in field.attrs.iter() {
+            if let Ok(ex) = attr.parse_args::<Expr>() {
+                match ex {
+                    Expr::Assign(ea) => {
+                        if let Expr::Path(ep) = *ea.left {
+                            match ep.path.segments.first().unwrap().ident.to_string().as_str() {
+                                "rename" => {
+                                    if let Expr::Lit(el) = *ea.right {
+                                        if let Lit::Str(ls) = el.lit {
+                                            let rename = ls.token().to_string();
+                                            field_name = trim(&rename).to_string();
+                                        }
+                                    }
+                                }
+                                &_ => {
+                                    // todo: do nothing or panic?
+                                }
+                            }
                         }
+                    }
+                    Expr::Path(ep) => {
+                        match ep.path.segments.first().unwrap().ident.to_string().as_str() {
+                            "skip" => {
+                                field_skip = true;
+                            }
+                            &_ => {
+                                // todo: do nothing or panic?
+                            }
+                        }
+                    }
+                    _ => {
+                        // todo: do nothing or panic?
                     }
                 }
             }
         }
 
-        // todo: there may be a syn type that would greatly simplify the
-        // matching of these types
-        match field_type.as_ref() {
+        if field_skip {
+            continue;
+        }
+
+        let field_type = match &field.ty {
+            syn::Type::Path(b) => b.clone(),
+            _ => panic!("field.ty not a `TypePath`"),
+        };
+
+        match field_type.clone().into_token_stream().to_string().as_ref() {
             "String" => {
                 inserts = quote! {
                     #inserts
-                    av_map.insert(#field_name.to_string(), AttributeValue::S(self.#ident.to_string()));
+                    av_map.insert(#field_name.to_string(), AttributeValue::S(self.#field_ident.to_string()));
                 };
                 reads = quote! {
                     #reads
-                    #ident: av_map
+                    #field_ident: av_map
                         .get(#field_name)
                         .ok_or(DeezError::MapKey(#field_name.to_string()))?
                         .as_s()?
@@ -78,11 +106,11 @@ pub fn derive(input: TokenStream) -> TokenStream {
             "bool" => {
                 inserts = quote! {
                     #inserts
-                    av_map.insert(#field_name.to_string(), AttributeValue::Bool(self.#ident));
+                    av_map.insert(#field_name.to_string(), AttributeValue::Bool(self.#field_ident));
                 };
                 reads = quote! {
                     #reads
-                    #ident: av_map
+                    #field_ident: av_map
                         .get(#field_name)
                         .ok_or(DeezError::MapKey(#field_name.to_string()))?
                         .as_bool()?
@@ -95,123 +123,22 @@ pub fn derive(input: TokenStream) -> TokenStream {
             "usize" | "isize" | "u8" | "i8" | "u16" | "i16" | "u32" | "i32" | "u64" | "i64" => {
                 inserts = quote! {
                     #inserts
-                    av_map.insert(#field_name.to_string(), AttributeValue::N(self.#ident.to_string()));
+                    av_map.insert(#field_name.to_string(), AttributeValue::N(self.#field_ident.to_string()));
                 };
-                match field_type.as_ref() {
-                    "usize" => {
-                        reads = quote! {
-                            #reads
-                            #ident: av_map
-                                .get(#field_name)
-                                .ok_or(DeezError::MapKey(#field_name.to_string()))?
-                                .as_n()?
-                                .clone()
-                                .parse::<usize>()?,
-                        }
-                    }
-                    "isize" => {
-                        reads = quote! {
-                            #reads
-                            #ident: av_map
-                                .get(#field_name)
-                                .ok_or(DeezError::MapKey(#field_name.to_string()))?
-                                .as_n()?
-                                .clone()
-                                .parse::<isize>()?,
-                        }
-                    }
-                    "u8" => {
-                        reads = quote! {
-                            #reads
-                            #ident: av_map
-                                .get(#field_name)
-                                .ok_or(DeezError::MapKey(#field_name.to_string()))?
-                                .as_n()?
-                                .clone()
-                                .parse::<u8>()?,
-                        }
-                    }
-                    "i8" => {
-                        reads = quote! {
-                            #reads
-                            #ident: av_map
-                                .get(#field_name)
-                                .ok_or(DeezError::MapKey(#field_name.to_string()))?
-                                .as_n()?
-                                .clone()
-                                .parse::<i8>()?,
-                        }
-                    }
-                    "u16" => {
-                        reads = quote! {
-                            #reads
-                            #ident: av_map
-                                .get(#field_name)
-                                .ok_or(DeezError::MapKey(#field_name.to_string()))?
-                                .as_n()?
-                                .clone()
-                                .parse::<u16>()?,
-                        }
-                    }
-                    "i16" => {
-                        reads = quote! {
-                            #reads
-                            #ident: av_map
-                                .get(#field_name)
-                                .ok_or(DeezError::MapKey(#field_name.to_string()))?
-                                .as_n()?
-                                .clone()
-                                .parse::<i16>()?,
-                        }
-                    }
-                    "u32" => {
-                        reads = quote! {
-                            #reads
-                            #ident: av_map
-                                .get(#field_name)
-                                .ok_or(DeezError::MapKey(#field_name.to_string()))?
-                                .as_n()?
-                                .clone()
-                                .parse::<u32>()?,
-                        }
-                    }
-                    "i32" => {
-                        reads = quote! {
-                            #reads
-                            #ident: av_map
-                                .get(#field_name)
-                                .ok_or(DeezError::MapKey(#field_name.to_string()))?
-                                .as_n()?
-                                .clone()
-                                .parse::<i32>()?,
-                        }
-                    }
-                    "u64" => {
-                        reads = quote! {
-                            #reads
-                            #ident: av_map
-                                .get(#field_name)
-                                .ok_or(DeezError::MapKey(#field_name.to_string()))?
-                                .as_n()?
-                                .clone()
-                                .parse::<u64>()?,
-                        }
-                    }
-                    "i64" => {
-                        reads = quote! {
-                            #reads
-                            #ident: av_map
-                                .get(#field_name)
-                                .ok_or(DeezError::MapKey(#field_name.to_string()))?
-                                .as_n()?
-                                .clone()
-                                .parse::<i64>()?,
-                        }
-                    }
-                    &_ => continue, // todo: what to do if field is skipped
-                }
+                reads = quote! {
+                    #reads
+                    #field_ident: av_map
+                        .get(#field_name)
+                        .ok_or(DeezError::MapKey(#field_name.to_string()))?
+                        .as_n()?
+                        .clone()
+                        .parse::<#field_type>()?,
+                };
             }
-            &_ => continue, // todo: what to do if field is skipped
+            &_ => panic!(
+                "unsupported type: {}",
+                field_type.clone().into_token_stream().to_string()
+            ),
         }
     }
 

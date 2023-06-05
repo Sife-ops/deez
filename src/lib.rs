@@ -165,11 +165,14 @@ mod tests {
     const PRIMARY: Index = Index::Primary;
 
     #[derive(DeezEntity, Debug, Default)]
-    struct Foo {
-        foo_string: String,
+    pub struct Foo {
+        pub foo_string: String,
         #[deez(rename = "fooz")]
-        foo_usize: usize,
-        foo_bool: bool,
+        // #[deez(skip)]
+        pub foo_usize: u8,
+        pub foo_bool: bool,
+        #[deez(skip)]
+        pub foo_skip: String,
         // todo: other types
     }
 
@@ -211,6 +214,7 @@ mod tests {
             foo_string: format!("bar"),
             foo_usize: 3,
             foo_bool: true,
+            foo_skip: format!("plz skip"),
         };
 
         ////////////////////////////////////////////////////////////////////////
