@@ -19,7 +19,7 @@ impl Deez {
             .client
             .put_item()
             .table_name(entity.meta().table)
-            .set_item(Some(entity.to_av_map()?)))
+            .set_item(Some(entity.to_av_map_keys()?)))
     }
 
     pub fn query(
@@ -34,7 +34,7 @@ impl Deez {
         let pkf = i.partition_key.field.clone();
         let skf = i.sort_key.field.clone();
         // todo: verify the index composites exist in av
-        let av = entity.to_av_map()?;
+        let av = entity.to_av_map_keys()?;
 
         let mut request = self
             .client
@@ -54,7 +54,7 @@ impl Deez {
     }
 
     pub fn update(&self, entity: &impl DeezEntity) -> Result<UpdateItemFluentBuilder, DeezError> {
-        let av_map = entity.to_av_map()?;
+        let av_map = entity.to_av_map_keys()?;
 
         let index_keys = entity.index_keys();
 
@@ -66,13 +66,11 @@ impl Deez {
         let sk = primary_index.sort_key.field;
 
         let mut update_expression = String::from("SET");
-        let c = entity.to_av_map_attr();
-        for (i, v) in c.iter().enumerate() {
-            match i {
-                0 => update_expression.push_str(&format!(" #{} = :{}", v.0, v.0)),
-                _ => update_expression.push_str(&format!(", #{} = :{}", v.0, v.0)),
-            }
-        }
+        let av_map_attr = entity.to_av_map();
+        av_map_attr.iter().enumerate().for_each(|(i, v)| match i {
+            0 => update_expression.push_str(&format!(" #{} = :{}", v.0, v.0)),
+            _ => update_expression.push_str(&format!(", #{} = :{}", v.0, v.0)),
+        });
 
         let mut request = self
             .client
@@ -94,10 +92,10 @@ impl Deez {
             )
             .update_expression(update_expression);
 
-        for (k, _) in c.iter() {
+        for (k, _) in av_map_attr.iter() {
             request = request.expression_attribute_names(format!("#{}", k), k);
         }
-        for (k, v) in c.iter() {
+        for (k, v) in av_map_attr.iter() {
             request = request.expression_attribute_values(format!(":{}", k), v.clone());
         }
 
@@ -151,8 +149,8 @@ pub trait DeezMeta {
 }
 
 pub trait DeezEntity: DeezMeta {
-    fn to_av_map_attr(&self) -> HashMap<String, AttributeValue>;
-    fn to_av_map(&self) -> Result<HashMap<String, AttributeValue>, DeezError>;
+    fn to_av_map(&self) -> HashMap<String, AttributeValue>;
+    fn to_av_map_keys(&self) -> Result<HashMap<String, AttributeValue>, DeezError>;
     fn from_av_map(m: HashMap<String, AttributeValue>) -> Result<Self, DeezError>
     where
         Self: Sized;
@@ -271,7 +269,7 @@ mod tests {
         };
 
         ////////////////////////////////////////////////////////////////////////
-        let b = a.to_av_map().unwrap();
+        let b = a.to_av_map_keys().unwrap();
         println!("{:#?}", b);
 
         assert_eq!(
