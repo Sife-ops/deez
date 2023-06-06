@@ -143,6 +143,10 @@ pub fn derive(input: TokenStream) -> TokenStream {
     }
 
     let name = &ast.ident;
+
+    let macro_put = syn::Ident::new(&format!("put_{}", name), name.span());
+    let macro_query = syn::Ident::new(&format!("query_{}", name), name.span());
+
     let (ig, tg, wc) = ast.generics.split_for_impl();
 
     let output = quote! {
@@ -152,6 +156,7 @@ pub fn derive(input: TokenStream) -> TokenStream {
                 #inserts
                 av_map
             }
+            // todo: return two hashmaps
             fn to_av_map_keys(&self) -> Result<HashMap<String, AttributeValue>, DeezError> {
                 let mut av_map = self.to_av_map();
                 let index_keys = self.index_keys();
@@ -182,6 +187,32 @@ pub fn derive(input: TokenStream) -> TokenStream {
                     ..Default::default()
                 })
             }
+        }
+
+        #[macro_export]
+        macro_rules! #macro_put {
+            ($d: ident, $e: expr) => {{
+                $d
+                    .put(&$e)
+                    .unwrap()
+                    .send()
+                    .await
+                    .unwrap()
+            }};
+        }
+
+        #[macro_export]
+        macro_rules! #macro_query {
+            ($d: ident, $i: ident, $e: expr) => {{
+                let a = $d
+                    .query($i, &$e)
+                    .unwrap()
+                    .send()
+                    .await
+                    .unwrap();
+                let b = a.items().unwrap();
+                #name::from_av_map_slice(b).unwrap()
+            }};
         }
     };
     output.into()

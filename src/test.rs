@@ -61,7 +61,8 @@ mod tests {
         }
     }
 
-    // run with `cargo test int -- --nocapture --test-threads 1`
+    // requires dynamodb-local with `docker run -p 8000:8000 amazon/dynamodb-local`,
+    // then run with `cargo test int -- --nocapture --test-threads 1`
     mod integration {
         use super::*;
         use aws_sdk_dynamodb::types::{
@@ -87,7 +88,7 @@ mod tests {
         // todo: initialize table
 
         #[tokio::test]
-        async fn int_1_init() {
+        async fn int_1_init_ddb() {
             let c = make_client().await;
             if let Ok(_) = c.delete_table().table_name(TABLE_NAME).send().await {}
             c.create_table()
@@ -157,7 +158,7 @@ mod tests {
         }
 
         #[tokio::test]
-        async fn int_2() {
+        async fn int_2_put() {
             let d = make_deez().await;
             d.put(&Foo {
                 foo_string_1: "foo".to_string(),
@@ -169,6 +170,20 @@ mod tests {
             .send()
             .await
             .unwrap();
+        }
+
+        #[tokio::test]
+        async fn int_2_macro_put() {
+            let d = make_deez().await;
+            put_Foo!(
+                d,
+                Foo {
+                    foo_string_1: "int_2_macro_put1".to_string(),
+                    foo_string_2: "int_2_macro_put2".to_string(),
+                    foo_usize: 69,
+                    foo_bool: false,
+                }
+            );
         }
 
         #[tokio::test]
@@ -188,6 +203,7 @@ mod tests {
                 .unwrap();
             let a = r.items().unwrap();
             let b = Foo::from_av_map_slice(a).unwrap();
+
             println!("{:#?}", b);
         }
 
