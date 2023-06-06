@@ -176,7 +176,7 @@ pub fn derive(input: TokenStream) -> TokenStream {
                 }
                 Ok(av_map)
             }
-            fn from_av_map(av_map: HashMap<String, AttributeValue>) -> Result<#name, DeezError> {
+            fn from_av_map(av_map: &HashMap<String, AttributeValue>) -> Result<#name, DeezError> {
                 Ok(#name {
                     #reads
                     ..Default::default()
