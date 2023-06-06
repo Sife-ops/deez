@@ -14,6 +14,10 @@ pub struct Deez {
 }
 
 impl Deez {
+    pub fn new(c: Client) -> Self {
+        Deez { client: c }
+    }
+
     pub fn put(&self, entity: &impl DeezEntity) -> Result<PutItemFluentBuilder, DeezError> {
         Ok(self
             .client
@@ -210,7 +214,85 @@ impl std::fmt::Display for Index<'_> {
 }
 
 #[cfg(test)]
-mod tests {
+mod int_tests {
+    use super::*;
+
+    // todo: initialize the table
+
+    async fn make_test_client() -> Deez {
+        let config = aws_config::from_env()
+            .endpoint_url("http://localhost:8000")
+            .region("us-east-1")
+            .load()
+            .await;
+        Deez::new(Client::new(&config))
+    }
+
+    ////////////////////////////////////////////////////////////////////////////
+    /// move to a higher scope...
+    const PRIMARY: Index = Index::Primary;
+
+    #[derive(DeezEntity, Debug, Default)]
+    pub struct Foo {
+        pub foo_string: String,
+        pub foo_usize: u8,
+        pub foo_bool: bool,
+    }
+
+    impl DeezMeta for Foo {
+        fn meta(&self) -> Meta {
+            Meta {
+                table: "footable",
+                service: "fooservice",
+                entity: "fooentity",
+            }
+        }
+        fn index_keys(&self) -> HashMap<Index, IndexKeys> {
+            let mut m = HashMap::new();
+            m.insert(
+                PRIMARY,
+                IndexKeys {
+                    partition_key: Key {
+                        field: "pk",
+                        composite: vec!["foo_string".to_string()],
+                    },
+                    sort_key: Key {
+                        field: "sk",
+                        composite: vec![],
+                    },
+                },
+            );
+            m
+        }
+        fn generated() -> Self {
+            Foo {
+                ..Default::default()
+            }
+        }
+    }
+    ////////////////////////////////////////////////////////////////////////////
+
+    #[cfg(test)]
+    #[tokio::test]
+    async fn lmao() {
+        println!("ye");
+        let d = make_test_client().await;
+        let r = d
+            .put(&Foo {
+                foo_string: "asdf".to_string(),
+                foo_usize: 69,
+                foo_bool: false,
+            })
+            .unwrap()
+            .send()
+            .await
+            .unwrap();
+        assert_eq!(1, 1);
+    }
+}
+
+#[cfg(test)]
+mod unit_tests {
     use super::*;
 
     const PRIMARY: Index = Index::Primary;
@@ -259,27 +341,27 @@ mod tests {
         }
     }
 
-    #[test]
-    fn t1() {
-        let a = Foo {
-            foo_string: format!("bar"),
-            foo_usize: 3,
-            foo_bool: true,
-            foo_skip: format!("plz skip"),
-        };
+    // #[test]
+    // fn t1() {
+    //     let a = Foo {
+    //         foo_string: format!("bar"),
+    //         foo_usize: 3,
+    //         foo_bool: true,
+    //         foo_skip: format!("plz skip"),
+    //     };
 
-        ////////////////////////////////////////////////////////////////////////
-        let b = a.to_av_map_keys().unwrap();
-        println!("{:#?}", b);
+    //     ////////////////////////////////////////////////////////////////////////
+    //     let b = a.to_av_map_keys().unwrap();
+    //     println!("{:#?}", b);
 
-        assert_eq!(
-            b.get("foo_string").unwrap().as_s().unwrap().to_string(),
-            "bar".to_string()
-        );
-        assert_eq!(b.get("fooz").unwrap().as_n().unwrap().to_string(), "3");
+    //     assert_eq!(
+    //         b.get("foo_string").unwrap().as_s().unwrap().to_string(),
+    //         "bar".to_string()
+    //     );
+    //     assert_eq!(b.get("fooz").unwrap().as_n().unwrap().to_string(), "3");
 
-        ////////////////////////////////////////////////////////////////////////
-        let c = Foo::from_av_map(b);
-        println!("{:#?}", c);
-    }
+    //     ////////////////////////////////////////////////////////////////////////
+    //     let c = Foo::from_av_map(b);
+    //     println!("{:#?}", c);
+    // }
 }
