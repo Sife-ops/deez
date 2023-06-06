@@ -22,6 +22,7 @@ mod tests {
                 entity: "fooentity",
             }
         }
+
         fn index_keys(&self) -> HashMap<Index, IndexKeys> {
             let mut m = HashMap::new();
             m.insert(
@@ -52,6 +53,7 @@ mod tests {
             );
             m
         }
+
         fn generated() -> Self {
             Foo {
                 ..Default::default()
@@ -59,6 +61,7 @@ mod tests {
         }
     }
 
+    // run with `cargo test int -- --nocapture --test-threads 1`
     mod integration {
         use super::*;
         use aws_sdk_dynamodb::types::{
@@ -86,69 +89,67 @@ mod tests {
         #[tokio::test]
         async fn int_1_init() {
             let c = make_client().await;
-
             if let Ok(_) = c.delete_table().table_name(TABLE_NAME).send().await {}
-
-            let pk = KeySchemaElement::builder()
-                .key_type(KeyType::Hash)
-                .attribute_name("pk")
-                .build();
-
-            let pk_attr = AttributeDefinition::builder()
-                .attribute_name("pk")
-                .attribute_type(ScalarAttributeType::S)
-                .build();
-
-            let sk = KeySchemaElement::builder()
-                .key_type(KeyType::Range)
-                .attribute_name("sk")
-                .build();
-
-            let sk_attr = AttributeDefinition::builder()
-                .attribute_name("sk")
-                .attribute_type(ScalarAttributeType::S)
-                .build();
-
-            let gsi1 = GlobalSecondaryIndex::builder()
-                .index_name("gsi1")
+            c.create_table()
+                .table_name(TABLE_NAME)
                 .key_schema(
                     KeySchemaElement::builder()
                         .key_type(KeyType::Hash)
-                        .attribute_name("gsi1pk")
+                        .attribute_name("pk")
+                        .build(),
+                )
+                .attribute_definitions(
+                    AttributeDefinition::builder()
+                        .attribute_name("pk")
+                        .attribute_type(ScalarAttributeType::S)
                         .build(),
                 )
                 .key_schema(
                     KeySchemaElement::builder()
                         .key_type(KeyType::Range)
+                        .attribute_name("sk")
+                        .build(),
+                )
+                .attribute_definitions(
+                    AttributeDefinition::builder()
+                        .attribute_name("sk")
+                        .attribute_type(ScalarAttributeType::S)
+                        .build(),
+                )
+                .global_secondary_indexes(
+                    GlobalSecondaryIndex::builder()
+                        .index_name("gsi1")
+                        .key_schema(
+                            KeySchemaElement::builder()
+                                .key_type(KeyType::Hash)
+                                .attribute_name("gsi1pk")
+                                .build(),
+                        )
+                        .key_schema(
+                            KeySchemaElement::builder()
+                                .key_type(KeyType::Range)
+                                .attribute_name("gsi1sk")
+                                .build(),
+                        )
+                        .projection(
+                            Projection::builder()
+                                .projection_type(ProjectionType::All)
+                                .build(),
+                        )
+                        .build(),
+                )
+                .attribute_definitions(
+                    AttributeDefinition::builder()
+                        .attribute_name("gsi1pk")
+                        .attribute_type(ScalarAttributeType::S)
+                        .build(),
+                )
+                .attribute_definitions(
+                    AttributeDefinition::builder()
                         .attribute_name("gsi1sk")
+                        .attribute_type(ScalarAttributeType::S)
                         .build(),
                 )
-                .projection(
-                    Projection::builder()
-                        .projection_type(ProjectionType::All)
-                        .build(),
-                )
-                .build();
-
-            let gsi1pk_attr = AttributeDefinition::builder()
-                .attribute_name("gsi1pk")
-                .attribute_type(ScalarAttributeType::S)
-                .build();
-
-            let gsi1sk_attr = AttributeDefinition::builder()
-                .attribute_name("gsi1sk")
-                .attribute_type(ScalarAttributeType::S)
-                .build();
-
-            c.create_table()
-                .table_name(TABLE_NAME)
-                .key_schema(pk)
-                .attribute_definitions(pk_attr)
-                .key_schema(sk)
-                .attribute_definitions(sk_attr)
-                .global_secondary_indexes(gsi1)
-                .attribute_definitions(gsi1pk_attr)
-                .attribute_definitions(gsi1sk_attr)
                 .billing_mode(BillingMode::PayPerRequest)
                 .send()
                 .await
