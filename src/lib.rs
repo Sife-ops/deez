@@ -2,6 +2,7 @@ mod error;
 
 use aws_sdk_dynamodb::operation::put_item::builders::PutItemFluentBuilder;
 use aws_sdk_dynamodb::operation::query::builders::QueryFluentBuilder;
+use aws_sdk_dynamodb::operation::update_item::builders::UpdateItemFluentBuilder;
 use aws_sdk_dynamodb::types::AttributeValue;
 use aws_sdk_dynamodb::Client;
 pub use deez_derive::DeezEntity;
@@ -47,6 +48,57 @@ impl Deez {
 
         if index != Index::Primary {
             request = request.index_name(index.to_string());
+        }
+
+        Ok(request)
+    }
+
+    pub fn update(&self, entity: &impl DeezEntity) -> Result<UpdateItemFluentBuilder, DeezError> {
+        let av_map = entity.to_av_map()?;
+
+        let index_keys = entity.index_keys();
+
+        let primary_index = index_keys
+            .get(&Index::Primary)
+            .ok_or(DeezError::UnknownKey(Index::Primary.to_string()))?;
+
+        let pk = primary_index.partition_key.field;
+        let sk = primary_index.sort_key.field;
+
+        let mut update_expression = String::from("SET");
+        let c = entity.to_av_map_attr();
+        for (i, v) in c.iter().enumerate() {
+            match i {
+                0 => update_expression.push_str(&format!(" #{} = :{}", v.0, v.0)),
+                _ => update_expression.push_str(&format!(", #{} = :{}", v.0, v.0)),
+            }
+        }
+
+        let mut request = self
+            .client
+            .update_item()
+            .table_name(entity.meta().table)
+            .key(
+                pk,
+                av_map
+                    .get(pk)
+                    .ok_or(DeezError::MapKey(pk.to_string()))?
+                    .clone(),
+            )
+            .key(
+                sk,
+                av_map
+                    .get(sk)
+                    .ok_or(DeezError::MapKey(sk.to_string()))?
+                    .clone(),
+            )
+            .update_expression(update_expression);
+
+        for (k, _) in c.iter() {
+            request = request.expression_attribute_names(format!("#{}", k), k);
+        }
+        for (k, v) in c.iter() {
+            request = request.expression_attribute_values(format!(":{}", k), v.clone());
         }
 
         Ok(request)
@@ -99,6 +151,7 @@ pub trait DeezMeta {
 }
 
 pub trait DeezEntity: DeezMeta {
+    fn to_av_map_attr(&self) -> HashMap<String, AttributeValue>;
     fn to_av_map(&self) -> Result<HashMap<String, AttributeValue>, DeezError>;
     fn from_av_map(m: HashMap<String, AttributeValue>) -> Result<Self, DeezError>
     where

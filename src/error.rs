@@ -12,6 +12,8 @@ pub enum DeezError {
     ParseIntError(#[from] ParseIntError),
     #[error("invalid composite: {0}")]
     InvalidComposite(String),
+    #[error("unknown key: {0}")]
+    UnknownKey(String),
 }
 
 // todo: cringed

@@ -147,6 +147,11 @@ pub fn derive(input: TokenStream) -> TokenStream {
 
     let output = quote! {
         impl #ig DeezEntity for #name #tg #wc {
+            fn to_av_map_attr(&self) -> HashMap<String, AttributeValue> {
+                let mut av_map = HashMap::new();
+                #inserts
+                av_map
+            }
             fn to_av_map(&self) -> Result<HashMap<String, AttributeValue>, DeezError> {
                 let mut av_map = HashMap::new();
                 #inserts
