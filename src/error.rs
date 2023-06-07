@@ -14,6 +14,8 @@ pub enum DeezError {
     InvalidComposite(String),
     #[error("unknown key: {0}")]
     UnknownKey(String),
+    #[error("empty entity vector")]
+    EmptyEntityVec
 }
 
 // todo: cringed

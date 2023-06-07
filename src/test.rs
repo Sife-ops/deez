@@ -187,7 +187,31 @@ mod tests {
         }
 
         #[tokio::test]
-        async fn int_3() {
+        async fn int_2_batch_write() {
+            let d = make_deez().await;
+            // todo: ability to pass any DeezEntity
+            let a = d
+                .batch_write::<Foo>()
+                .put(vec![Foo {
+                    foo_string_1: "foo".to_string(),
+                    ..Default::default()
+                }])
+                .unwrap()
+                .delete(vec![Foo {
+                    foo_string_1: "foo".to_string(),
+                    ..Default::default()
+                }])
+                .unwrap()
+                .build()
+                .unwrap()
+                .send()
+                .await
+                .unwrap();
+            println!("{:#?}", a);
+        }
+
+        #[tokio::test]
+        async fn int_3_query() {
             let d = make_deez().await;
             let r = d
                 .query(
@@ -208,7 +232,7 @@ mod tests {
         }
 
         #[tokio::test]
-        async fn int_4() {
+        async fn int_4_update() {
             let d = make_deez().await;
             let _r = d
                 .update(&Foo {
@@ -238,7 +262,7 @@ mod tests {
             };
 
             ////////////////////////////////////////////////////////////////////////
-            let b = a.to_av_map_keys().unwrap();
+            let b = a.to_av_map_with_keys().unwrap();
             println!("{:#?}", b);
 
             assert_eq!(

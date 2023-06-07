@@ -1,5 +1,5 @@
 use proc_macro::{self, TokenStream};
-use quote::{quote, ToTokens};
+use quote::{format_ident, quote, ToTokens};
 use syn::{parse_macro_input, DeriveInput, Expr, Lit};
 
 // code references:
@@ -144,8 +144,10 @@ pub fn derive(input: TokenStream) -> TokenStream {
 
     let name = &ast.ident;
 
-    let macro_put = syn::Ident::new(&format!("put_{}", name), name.span());
-    let macro_query = syn::Ident::new(&format!("query_{}", name), name.span());
+    let macro_put = format_ident!("put_{}", name);
+    // let macro_batch_write = format_ident!("batch_write_{}", name);
+    let macro_query = format_ident!("query_{}", name);
+    let macro_delete = format_ident!("delete_{}", name);
 
     let (ig, tg, wc) = ast.generics.split_for_impl();
 
@@ -157,7 +159,7 @@ pub fn derive(input: TokenStream) -> TokenStream {
                 av_map
             }
             // todo: return two hashmaps
-            fn to_av_map_keys(&self) -> Result<HashMap<String, AttributeValue>, DeezError> {
+            fn to_av_map_with_keys(&self) -> Result<HashMap<String, AttributeValue>, DeezError> {
                 let mut av_map = self.to_av_map();
                 let index_keys = self.index_keys();
                 for (_, index) in index_keys.iter() {
@@ -201,6 +203,11 @@ pub fn derive(input: TokenStream) -> TokenStream {
             }};
         }
 
+        // // todo: variadic, conditional expansion...
+        // #[macro_export]
+        // macro_rules! #macro_batch_write {
+        // }
+
         #[macro_export]
         macro_rules! #macro_query {
             ($d: ident, $i: ident, $e: expr) => {{
@@ -212,6 +219,18 @@ pub fn derive(input: TokenStream) -> TokenStream {
                     .unwrap();
                 let b = a.items().unwrap();
                 #name::from_av_map_slice(b).unwrap()
+            }};
+        }
+
+        #[macro_export]
+        macro_rules! #macro_delete {
+            ($d: ident, $e: expr) => {{
+                $d
+                    .delete(&$e)
+                    .unwrap()
+                    .send()
+                    .await
+                    .unwrap()
             }};
         }
     };
