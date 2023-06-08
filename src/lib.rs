@@ -20,7 +20,7 @@ pub struct Deez {
 
 pub struct DeezBatchWriteBuilder<'a> {
     client: &'a Client,
-    pub writes: HashMap<String, WriteRequest>,
+    writes: HashMap<String, WriteRequest>,
 }
 
 impl<'a> DeezBatchWriteBuilder<'a> {
@@ -68,6 +68,74 @@ impl<'a> DeezBatchWriteBuilder<'a> {
     }
 }
 
+pub struct DeezQueryBuilder {
+    pub index: Index,
+    pub query: QueryFluentBuilder,
+    pub exp: String,
+    pub exp_appendix: String,
+    pub names: HashMap<String, String>,
+    pub values: HashMap<String, AttributeValue>,
+}
+
+// todo: `where` clause
+impl DeezQueryBuilder {
+    pub fn begins(mut self, entity: &impl DeezEntity) -> DeezResult<DeezQueryBuilder> {
+        let i = entity.ligma(&self.index)?;
+        *self
+            .values
+            .get_mut(&i.sort_key.field)
+            .ok_or(DeezError::MapKey(i.sort_key.field))? = i.sort_key.value;
+        Ok(self)
+    }
+
+    // todo: FilterExpression
+    pub fn between(
+        mut self,
+        entity1: &impl DeezEntity,
+        entity2: &impl DeezEntity,
+    ) -> DeezResult<DeezQueryBuilder> {
+        let i1 = entity1.ligma(&self.index)?;
+        let i2 = entity2.ligma(&self.index)?;
+        *self
+            .values
+            .get_mut(&i1.sort_key.field)
+            .ok_or(DeezError::MapKey(i1.sort_key.field))? = i1.sort_key.value;
+        self.values.insert(":sk2".to_string(), i2.sort_key.value);
+        self.exp_appendix = String::from("and #sk1 BETWEEN :sk1 AND :sk2");
+        Ok(self)
+    }
+
+    // todo: lte
+    pub fn lt(mut self, entity: &impl DeezEntity) -> DeezResult<DeezQueryBuilder> {
+        let i = entity.ligma(&self.index)?;
+        *self
+            .values
+            .get_mut(&i.sort_key.field)
+            .ok_or(DeezError::MapKey(i.sort_key.field))? = i.sort_key.value;
+        self.exp_appendix = String::from("and #sk1 < :sk1");
+        Ok(self)
+    }
+
+    // todo: gt
+    pub fn gte(mut self, entity: &impl DeezEntity) -> DeezResult<DeezQueryBuilder> {
+        let i = entity.ligma(&self.index)?;
+        *self
+            .values
+            .get_mut(&i.sort_key.field)
+            .ok_or(DeezError::MapKey(i.sort_key.field))? = i.sort_key.value;
+        self.exp_appendix = String::from("and #sk1 >= :sk1");
+        Ok(self)
+    }
+
+    // todo: execution options
+    pub fn build(self) -> QueryFluentBuilder {
+        self.query
+            .key_condition_expression(format!("{} {}", self.exp, self.exp_appendix))
+            .set_expression_attribute_names(Some(self.names))
+            .set_expression_attribute_values(Some(self.values))
+    }
+}
+
 impl Deez {
     pub fn new(c: Client) -> Self {
         Deez { client: c }
@@ -81,36 +149,52 @@ impl Deez {
             .set_item(Some(entity.to_av_map_with_keys()?)))
     }
 
-    pub fn batch_write<T: DeezEntity>(&self) -> DeezBatchWriteBuilder {
+    pub fn batch_write(&self) -> DeezBatchWriteBuilder {
         DeezBatchWriteBuilder {
             client: &self.client,
             writes: HashMap::new(),
         }
     }
 
-    pub fn query(
-        &self,
-        index: Index,
-        entity: &impl DeezEntity,
-    ) -> DeezResult<QueryFluentBuilder> {
-        let index_keys = entity.index_keys();
-        let i = index_keys
-            .get(&index)
-            .ok_or(DeezError::MapKey(index.to_string()))?;
-        let pkf = i.partition_key.field.clone();
-        let skf = i.sort_key.field.clone();
-        // todo: verify the index composites exist in av
-        let av = entity.to_av_map_with_keys()?;
+    pub fn lulw<'a>(&self, index: Index, entity: &impl DeezEntity) -> DeezResult<DeezQueryBuilder> {
+        let i = entity.ligma(&index)?;
+
+        let mut query = self.client.query().table_name(entity.meta().table);
+        if index != Index::Primary {
+            query = query.index_name(index.to_string());
+        }
+
+        let mut names = HashMap::new();
+        let mut values = HashMap::new();
+        names.insert("#pk".to_string(), i.partition_key.field.clone());
+        values.insert(":pk".to_string(), i.partition_key.value.clone());
+        names.insert("#sk1".to_string(), i.sort_key.field.clone());
+        values.insert(":sk1".to_string(), i.sort_key.value.clone());
+
+        Ok(DeezQueryBuilder {
+            index,
+            query,
+            exp: String::from("#pk = :pk1"),
+            exp_appendix: String::from("and begins_with(#sk1, :sk1)"), // default expression
+            names,
+            values,
+        })
+    }
+
+    pub fn query(&self, index: Index, entity: &impl DeezEntity) -> DeezResult<QueryFluentBuilder> {
+        let i = entity.ligma(&index)?;
+        let pkf = i.partition_key.field;
+        let skf = i.sort_key.field;
 
         let mut request = self
             .client
             .query()
             .table_name(entity.meta().table)
             .key_condition_expression(format!("#{pkf} = :{pkf} and begins_with(#{skf}, :{skf})"))
-            .expression_attribute_names(format!("#{pkf}"), pkf)
-            .expression_attribute_names(format!("#{skf}"), skf)
-            .expression_attribute_values(format!(":{pkf}"), av.get(pkf).unwrap().clone())
-            .expression_attribute_values(format!(":{skf}"), av.get(skf).unwrap().clone());
+            .expression_attribute_names(format!("#{pkf}"), pkf.clone())
+            .expression_attribute_names(format!("#{skf}"), skf.clone())
+            .expression_attribute_values(format!(":{pkf}"), i.partition_key.value)
+            .expression_attribute_values(format!(":{skf}"), i.sort_key.value);
 
         if index != Index::Primary {
             request = request.index_name(index.to_string());
@@ -120,13 +204,14 @@ impl Deez {
     }
 
     // todo: scan
+    // todo: batch get
 
     pub fn update(&self, entity: &impl DeezEntity) -> DeezResult<UpdateItemFluentBuilder> {
         // look up entity's pk and sk field name
-        let index_keys = entity.index_keys();
-        let primary_index = index_keys
+        let indexes = entity.indexes();
+        let primary_index = indexes
             .get(&Index::Primary)
-            .ok_or(DeezError::UnknownKey(Index::Primary.to_string()))?;
+            .ok_or(DeezError::UnknownIndex(Index::Primary.to_string()))?;
         let pk_field = primary_index.partition_key.field;
         let sk_field = primary_index.sort_key.field;
 
@@ -170,10 +255,10 @@ impl Deez {
     }
 
     pub fn delete(&self, entity: &impl DeezEntity) -> DeezResult<DeleteItemFluentBuilder> {
-        let index_keys = entity.index_keys();
-        let primary_index = index_keys
+        let indexes = entity.indexes();
+        let primary_index = indexes
             .get(&Index::Primary)
-            .ok_or(DeezError::UnknownKey(Index::Primary.to_string()))?;
+            .ok_or(DeezError::UnknownIndex(Index::Primary.to_string()))?;
         let pk_field = primary_index.partition_key.field;
         let sk_field = primary_index.sort_key.field;
 
@@ -219,19 +304,19 @@ pub struct Key<'a> {
 }
 
 impl Key<'_> {
-    fn _join_composite(
-        &self,
-        attrs: &HashMap<String, AttributeValue>,
-    ) -> DeezResult<String> {
+    fn _join_composite(&self, attrs: &HashMap<String, AttributeValue>) -> DeezResult<String> {
         let mut j = String::new();
         for c in self.composite.iter() {
             let a = attrs.get(c).ok_or(DeezError::MapKey(c.to_string()))?;
             let s = match a {
                 AttributeValue::S(b) => b.to_string(),
-                AttributeValue::N(b) => b.to_string(),
-                AttributeValue::Bool(b) => b.to_string(),
+                // AttributeValue::N(b) => b.to_string(),
+                // AttributeValue::Bool(b) => b.to_string(),
                 _ => return Err(DeezError::InvalidComposite(c.to_string())),
             };
+            if s.len() < 1 {
+                return Ok(j);
+            }
             j.push_str(&format!("#{}_{}", c, s));
         }
         Ok(j)
@@ -240,8 +325,18 @@ impl Key<'_> {
 
 pub trait DeezMeta {
     fn meta(&self) -> Meta;
-    fn index_keys(&self) -> HashMap<Index, IndexKeys>;
+    fn indexes(&self) -> HashMap<Index, IndexKeys>;
     fn generated() -> Self;
+}
+
+pub struct IndexKeysJoined {
+    pub partition_key: KeyJoined,
+    pub sort_key: KeyJoined,
+}
+
+pub struct KeyJoined {
+    pub field: String,
+    pub value: AttributeValue,
 }
 
 pub trait DeezEntity: DeezMeta {
@@ -261,34 +356,60 @@ pub trait DeezEntity: DeezMeta {
         }
         Ok(v)
     }
+
+    fn ligma(&self, index: &Index) -> DeezResult<IndexKeysJoined> {
+        let indexes = self.indexes();
+        let index_keys = indexes
+            .get(&index)
+            .ok_or(DeezError::UnknownIndex(index.to_string()))?;
+        let pkf = index_keys.partition_key.field;
+        let skf = index_keys.sort_key.field;
+        let av_map = self.to_av_map_with_keys()?;
+        Ok(IndexKeysJoined {
+            partition_key: KeyJoined {
+                field: pkf.to_string(),
+                value: av_map
+                    .get(pkf)
+                    .ok_or(DeezError::MapKey(pkf.to_string()))?
+                    .clone(),
+            },
+            sort_key: KeyJoined {
+                field: skf.to_string(),
+                value: av_map
+                    .get(skf)
+                    .ok_or(DeezError::MapKey(skf.to_string()))?
+                    .clone(),
+            },
+        })
+    }
 }
 
 #[derive(Eq, Hash, PartialEq)]
-pub enum Index<'a> {
+pub enum Index {
     Primary,
-    Gsi1(&'a str),
-    Gsi2(&'a str),
-    Gsi3(&'a str),
-    Gsi4(&'a str),
-    Gsi5(&'a str),
-    Gsi6(&'a str),
-    Gsi7(&'a str),
-    Gsi8(&'a str),
-    Gsi9(&'a str),
-    Gsi10(&'a str),
-    Gsi11(&'a str),
-    Gsi12(&'a str),
-    Gsi13(&'a str),
-    Gsi14(&'a str),
-    Gsi15(&'a str),
-    Gsi16(&'a str),
-    Gsi17(&'a str),
-    Gsi18(&'a str),
-    Gsi19(&'a str),
-    Gsi20(&'a str),
+    Gsi1(String), // todo: use &'a str
+    Gsi2(String),
+    Gsi3(String),
+    Gsi4(String),
+    Gsi5(String),
+    Gsi6(String),
+    Gsi7(String),
+    Gsi8(String),
+    Gsi9(String),
+    Gsi10(String),
+    Gsi11(String),
+    Gsi12(String),
+    Gsi13(String),
+    Gsi14(String),
+    Gsi15(String),
+    Gsi16(String),
+    Gsi17(String),
+    Gsi18(String),
+    Gsi19(String),
+    Gsi20(String),
 }
 
-impl std::fmt::Display for Index<'_> {
+impl std::fmt::Display for Index {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             Index::Primary => write!(f, "primary"),

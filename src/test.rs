@@ -4,7 +4,7 @@ mod tests {
 
     const TABLE_NAME: &str = "footable";
     const PRIMARY: Index = Index::Primary;
-    const GSI1: Index = Index::Gsi1("gsi1");
+    // const GSI1: Index = Index::Gsi1("gsi1".to_string());
 
     #[derive(DeezEntity, Debug, Default)]
     pub struct Foo {
@@ -23,7 +23,7 @@ mod tests {
             }
         }
 
-        fn index_keys(&self) -> HashMap<Index, IndexKeys> {
+        fn indexes(&self) -> HashMap<Index, IndexKeys> {
             let mut m = HashMap::new();
             m.insert(
                 PRIMARY,
@@ -39,7 +39,7 @@ mod tests {
                 },
             );
             m.insert(
-                GSI1,
+                Index::Gsi1("gsi1".to_string()),
                 IndexKeys {
                     partition_key: Key {
                         field: "gsi1pk",
@@ -189,9 +189,8 @@ mod tests {
         #[tokio::test]
         async fn int_2_batch_write() {
             let d = make_deez().await;
-            // todo: ability to pass any DeezEntity
             let a = d
-                .batch_write::<Foo>()
+                .batch_write()
                 .put(vec![Foo {
                     foo_string_1: "foo".to_string(),
                     ..Default::default()

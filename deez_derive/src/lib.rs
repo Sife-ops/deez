@@ -161,8 +161,8 @@ pub fn derive(input: TokenStream) -> TokenStream {
             // todo: return two hashmaps
             fn to_av_map_with_keys(&self) -> Result<HashMap<String, AttributeValue>, DeezError> {
                 let mut av_map = self.to_av_map();
-                let index_keys = self.index_keys();
-                for (_, index) in index_keys.iter() {
+                let indexes = self.indexes();
+                for (_, index) in indexes.iter() {
                     av_map.insert(
                         index.partition_key.field.to_string(),
                         AttributeValue::S(format!(

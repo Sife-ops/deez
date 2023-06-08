@@ -1,4 +1,5 @@
 use aws_sdk_dynamodb::types::AttributeValue;
+use crate::Index;
 use thiserror::Error;
 use std::num::ParseIntError;
 
@@ -10,10 +11,10 @@ pub enum DeezError {
     MapKey(String),
     #[error(transparent)]
     ParseIntError(#[from] ParseIntError),
-    #[error("invalid composite: {0}")]
+    #[error("invalid composite: {0}, must use String")]
     InvalidComposite(String),
     #[error("unknown key: {0}")]
-    UnknownKey(String),
+    UnknownIndex(String),
     #[error("empty entity vector")]
     EmptyEntityVec
 }
