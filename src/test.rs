@@ -11,7 +11,7 @@ mod tests {
         pub foo_string_1: String,
         pub foo_string_2: String,
         pub foo_string_3: String,
-        // pub foo_string_4: String,
+        pub foo_string_4: String,
         pub foo_usize: u8,
         pub foo_bool: bool,
     }
@@ -49,7 +49,7 @@ mod tests {
                     },
                     sort_key: Key {
                         field: "gsi1sk",
-                        composite: vec!["foo_string_1".to_string(), "foo_string_3".to_string()],
+                        composite: vec!["foo_string_3".to_string(), "foo_string_4".to_string()],
                     },
                 },
             );
@@ -166,7 +166,8 @@ mod tests {
             d.create(&Foo {
                 foo_string_1: "foo".to_string(),
                 foo_string_2: "bar".to_string(),
-                foo_string_3: Utc
+                foo_string_3: "baz".to_string(),
+                foo_string_4: Utc
                     .with_ymd_and_hms(2015, 1, 2, 3, 4, 5)
                     .unwrap()
                     .to_rfc3339(),
@@ -190,6 +191,7 @@ mod tests {
                     foo_string_1: "foo".to_string(),
                     foo_string_2: "bar".to_string(),
                     foo_string_3: "baz".to_string(),
+                    foo_string_4: "buz".to_string(),
                     foo_usize: 69,
                     foo_bool: false,
                 }
@@ -257,8 +259,10 @@ mod tests {
                 .put(vec![
                     &Foo {
                         foo_string_1: "foo".to_string(),
-                        foo_string_2: "fooz".to_string(),
-                        foo_string_3: Utc
+                        foo_string_2: "deez".to_string(),
+                        foo_string_3: "sugon".to_string(),
+                        // foo_string_4: "1".to_string(),
+                        foo_string_4: Utc
                             .with_ymd_and_hms(2015, 1, 2, 3, 4, 5)
                             .unwrap()
                             .to_rfc3339(),
@@ -266,36 +270,44 @@ mod tests {
                     },
                     &Foo {
                         foo_string_1: "bar".to_string(),
-                        foo_string_2: "barz".to_string(),
-                        foo_string_3: Utc
-                            .with_ymd_and_hms(2015, 1, 3, 4, 4, 5)
+                        foo_string_2: "deez".to_string(),
+                        foo_string_3: "sugon".to_string(),
+                        // foo_string_4: "2".to_string(),
+                        foo_string_4: Utc
+                            .with_ymd_and_hms(2015, 1, 3, 3, 4, 5)
                             .unwrap()
                             .to_rfc3339(),
                         ..Default::default()
                     },
                     &Foo {
                         foo_string_1: "baz".to_string(),
-                        foo_string_2: "bazz".to_string(),
-                        foo_string_3: Utc
-                            .with_ymd_and_hms(2015, 1, 4, 5, 4, 5)
+                        foo_string_2: "deez".to_string(),
+                        foo_string_3: "sugon".to_string(),
+                        // foo_string_4: "3".to_string(),
+                        foo_string_4: Utc
+                            .with_ymd_and_hms(2015, 1, 4, 3, 4, 5)
                             .unwrap()
                             .to_rfc3339(),
                         ..Default::default()
                     },
                     &Foo {
                         foo_string_1: "for".to_string(),
-                        foo_string_2: "forz".to_string(),
-                        foo_string_3: Utc
-                            .with_ymd_and_hms(2015, 1, 5, 6, 4, 5)
+                        foo_string_2: "deez".to_string(),
+                        foo_string_3: "sugon".to_string(),
+                        // foo_string_4: "4".to_string(),
+                        foo_string_4: Utc
+                            .with_ymd_and_hms(2015, 1, 5, 3, 4, 5)
                             .unwrap()
                             .to_rfc3339(),
                         ..Default::default()
                     },
                     &Foo {
                         foo_string_1: "far".to_string(),
-                        foo_string_2: "farz".to_string(),
-                        foo_string_3: Utc
-                            .with_ymd_and_hms(2015, 1, 6, 7, 4, 5)
+                        foo_string_2: "deez".to_string(),
+                        foo_string_3: "sugon".to_string(),
+                        // foo_string_4: "5".to_string(),
+                        foo_string_4: Utc
+                            .with_ymd_and_hms(2015, 1, 6, 3, 4, 5)
                             .unwrap()
                             .to_rfc3339(),
                         ..Default::default()
@@ -309,7 +321,7 @@ mod tests {
                 .unwrap();
 
             let a = d
-                .query_2(
+                .query(
                     Index::Primary,
                     &Foo {
                         foo_string_1: "foo".to_string(),
@@ -326,18 +338,19 @@ mod tests {
             // todo: assert
 
             let c = d
-                .query_2(
+                .query(
                     Index::Gsi1("gsi1".to_string()),
                     &Foo {
-                        foo_string_2: "bazz".to_string(),
+                        foo_string_2: "deez".to_string(),
                         ..Default::default()
                     },
                 )
                 .unwrap()
                 .gte(&Foo {
-                    foo_string_1: "baz".to_string(),
-                    foo_string_3: Utc
-                        .with_ymd_and_hms(2015, 1, 4, 5, 4, 5)
+                    foo_string_3: "sugon".to_string(),
+                    // foo_string_4: "3".to_string(),
+                    foo_string_4: Utc
+                        .with_ymd_and_hms(2015, 1, 3, 3, 4, 5)
                         .unwrap()
                         .to_rfc3339(),
                     ..Default::default()
@@ -350,27 +363,6 @@ mod tests {
             let d = Foo::from_av_map_slice(c.items().unwrap()).unwrap();
             println!("{:#?}", d);
             // todo: assert
-        }
-
-        #[tokio::test]
-        async fn int_3_query() {
-            let d = make_deez().await;
-            let r = d
-                .query(
-                    PRIMARY,
-                    &Foo {
-                        foo_string_1: "foo".to_string(),
-                        ..Default::default()
-                    },
-                )
-                .unwrap()
-                .send()
-                .await
-                .unwrap();
-            let a = r.items().unwrap();
-            let b = Foo::from_av_map_slice(a).unwrap();
-
-            println!("{:#?}", b);
         }
 
         #[tokio::test]
@@ -396,9 +388,10 @@ mod tests {
         fn unit_1() {
             println!("unit");
             let a = Foo {
-                foo_string_1: format!("bar"),
-                foo_string_2: format!("baz"),
-                foo_string_3: "bar".to_string(),
+                foo_string_1: format!("foo"),
+                foo_string_2: format!("bar"),
+                foo_string_3: "baz".to_string(),
+                foo_string_4: "asdf".to_string(),
                 foo_usize: 3,
                 foo_bool: true,
                 // foo_skip: format!("plz skip"),

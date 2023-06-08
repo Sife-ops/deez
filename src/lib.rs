@@ -183,7 +183,7 @@ impl Deez {
         }
     }
 
-    pub fn query_2(&self, index: Index, entity: &impl DeezEntity) -> DeezResult<DeezQueryBuilder> {
+    pub fn query(&self, index: Index, entity: &impl DeezEntity) -> DeezResult<DeezQueryBuilder> {
         let i = entity.get_composed_index(&index, &entity.to_av_map_with_keys()?)?;
 
         let mut query = self.client.query().table_name(entity.meta().table);
@@ -206,28 +206,6 @@ impl Deez {
             names,
             values,
         })
-    }
-
-    pub fn query(&self, index: Index, entity: &impl DeezEntity) -> DeezResult<QueryFluentBuilder> {
-        let i = entity.get_composed_index(&index, &entity.to_av_map_with_keys()?)?;
-        let pkf = i.partition_key.field;
-        let skf = i.sort_key.field;
-
-        let mut request = self
-            .client
-            .query()
-            .table_name(entity.meta().table)
-            .key_condition_expression(format!("#{pkf} = :{pkf} and begins_with(#{skf}, :{skf})"))
-            .expression_attribute_names(format!("#{pkf}"), pkf.clone())
-            .expression_attribute_names(format!("#{skf}"), skf.clone())
-            .expression_attribute_values(format!(":{pkf}"), i.partition_key.value)
-            .expression_attribute_values(format!(":{skf}"), i.sort_key.value);
-
-        if index != Index::Primary {
-            request = request.index_name(index.to_string());
-        }
-
-        Ok(request)
     }
 
     // todo: scan

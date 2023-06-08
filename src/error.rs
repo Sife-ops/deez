@@ -1,5 +1,4 @@
 use aws_sdk_dynamodb::types::AttributeValue;
-use crate::Index;
 use thiserror::Error;
 use std::num::ParseIntError;
 
