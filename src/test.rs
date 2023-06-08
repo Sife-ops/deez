@@ -4,7 +4,7 @@ mod tests {
 
     const TABLE_NAME: &str = "footable";
     const PRIMARY: Index = Index::Primary;
-    // const GSI1: Index = Index::Gsi1("gsi1".to_string());
+    const GSI1: Index = Index::Gsi1("gsi1");
 
     #[derive(DeezEntity, Debug, Default)]
     pub struct Foo {
@@ -41,7 +41,7 @@ mod tests {
                 },
             );
             m.insert(
-                Index::Gsi1("gsi1".to_string()),
+                GSI1,
                 IndexKeys {
                     partition_key: Key {
                         field: "gsi1pk",
