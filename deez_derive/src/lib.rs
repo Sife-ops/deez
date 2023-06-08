@@ -144,7 +144,7 @@ pub fn derive(input: TokenStream) -> TokenStream {
 
     let name = &ast.ident;
 
-    let macro_put = format_ident!("put_{}", name);
+    let macro_create = format_ident!("create_{}", name);
     // let macro_batch_write = format_ident!("batch_write_{}", name);
     let macro_query = format_ident!("query_{}", name);
     let macro_delete = format_ident!("delete_{}", name);
@@ -175,7 +175,7 @@ pub fn derive(input: TokenStream) -> TokenStream {
                     av_map.insert(
                         index.sort_key.field.to_string(),
                         AttributeValue::S(format!(
-                            "#{}{}",
+                            "${}{}",
                             self.meta().entity,
                             index.sort_key._join_composite(&av_map)?,
                         ))
@@ -192,10 +192,10 @@ pub fn derive(input: TokenStream) -> TokenStream {
         }
 
         #[macro_export]
-        macro_rules! #macro_put {
+        macro_rules! #macro_create {
             ($d: ident, $e: expr) => {{
                 $d
-                    .put(&$e)
+                    .create(&$e)
                     .unwrap()
                     .send()
                     .await

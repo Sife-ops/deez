@@ -20,11 +20,14 @@ pub struct Deez {
 
 pub struct DeezBatchWriteBuilder<'a> {
     client: &'a Client,
-    writes: HashMap<String, WriteRequest>,
+    writes: HashMap<String, Vec<WriteRequest>>,
 }
 
 impl<'a> DeezBatchWriteBuilder<'a> {
-    pub fn put<T: DeezEntity>(mut self, entities: Vec<T>) -> DeezResult<DeezBatchWriteBuilder<'a>> {
+    pub fn put<T: DeezEntity>(
+        mut self,
+        entities: Vec<&T>,
+    ) -> DeezResult<DeezBatchWriteBuilder<'a>> {
         for entity in entities.iter() {
             let request = WriteRequest::builder()
                 .put_request(
@@ -33,38 +36,45 @@ impl<'a> DeezBatchWriteBuilder<'a> {
                         .build(),
                 )
                 .build();
-            self.writes.insert(entity.meta().table.to_string(), request);
+            if let Some(y) = self.writes.get_mut(entity.meta().table) {
+                y.push(request);
+            } else {
+                self.writes
+                    .insert(entity.meta().table.to_string(), vec![request]);
+            }
         }
         Ok(self)
     }
 
     pub fn delete<T: DeezEntity>(
         mut self,
-        entities: Vec<T>,
+        entities: Vec<&T>,
     ) -> DeezResult<DeezBatchWriteBuilder<'a>> {
         for entity in entities.iter() {
+            let a = entity.get_composed_index(&Index::Primary, &entity.to_av_map_with_keys()?)?;
             let request = WriteRequest::builder()
                 .delete_request(
                     DeleteRequest::builder()
-                        .set_key(Some(entity.to_av_map_with_keys()?))
+                        .key(a.partition_key.field, a.partition_key.value)
+                        .key(a.sort_key.field, a.sort_key.value)
                         .build(),
                 )
                 .build();
-            self.writes.insert(entity.meta().table.to_string(), request);
+            if let Some(y) = self.writes.get_mut(entity.meta().table) {
+                y.push(request);
+            } else {
+                self.writes
+                    .insert(entity.meta().table.to_string(), vec![request]);
+            }
         }
         Ok(self)
     }
 
     pub fn build(&self) -> DeezResult<BatchWriteItemFluentBuilder> {
-        let mut m: HashMap<String, Vec<WriteRequest>> = HashMap::new();
-        for (k, v) in self.writes.iter() {
-            if let Some(y) = m.get_mut(k) {
-                y.push(v.clone());
-            } else {
-                m.insert(k.to_string(), vec![v.clone()]);
-            }
-        }
-        Ok(self.client.batch_write_item().set_request_items(Some(m)))
+        Ok(self
+            .client
+            .batch_write_item()
+            .set_request_items(Some(self.writes.clone())))
     }
 }
 
@@ -80,7 +90,7 @@ pub struct DeezQueryBuilder {
 // todo: `where` clause
 impl DeezQueryBuilder {
     pub fn begins(mut self, entity: &impl DeezEntity) -> DeezResult<DeezQueryBuilder> {
-        let i = entity.ligma(&self.index)?;
+        let i = entity.get_composed_index(&self.index, &entity.to_av_map_with_keys()?)?;
         *self
             .values
             .get_mut(&i.sort_key.field)
@@ -94,8 +104,8 @@ impl DeezQueryBuilder {
         entity1: &impl DeezEntity,
         entity2: &impl DeezEntity,
     ) -> DeezResult<DeezQueryBuilder> {
-        let i1 = entity1.ligma(&self.index)?;
-        let i2 = entity2.ligma(&self.index)?;
+        let i1 = entity1.get_composed_index(&self.index, &entity1.to_av_map_with_keys()?)?;
+        let i2 = entity2.get_composed_index(&self.index, &entity2.to_av_map_with_keys()?)?;
         *self
             .values
             .get_mut(&i1.sort_key.field)
@@ -107,22 +117,24 @@ impl DeezQueryBuilder {
 
     // todo: lte
     pub fn lt(mut self, entity: &impl DeezEntity) -> DeezResult<DeezQueryBuilder> {
-        let i = entity.ligma(&self.index)?;
-        *self
-            .values
-            .get_mut(&i.sort_key.field)
-            .ok_or(DeezError::MapKey(i.sort_key.field))? = i.sort_key.value;
+        let i = entity.get_composed_index(&self.index, &entity.to_av_map_with_keys()?)?;
+        if let Some(v) = self.values.get_mut(":sk1") {
+            *v = i.sort_key.value;
+        } else {
+            self.values.insert(i.sort_key.field, i.sort_key.value);
+        }
         self.exp_appendix = String::from("and #sk1 < :sk1");
         Ok(self)
     }
 
     // todo: gt
     pub fn gte(mut self, entity: &impl DeezEntity) -> DeezResult<DeezQueryBuilder> {
-        let i = entity.ligma(&self.index)?;
-        *self
-            .values
-            .get_mut(&i.sort_key.field)
-            .ok_or(DeezError::MapKey(i.sort_key.field))? = i.sort_key.value;
+        let i = entity.get_composed_index(&self.index, &entity.to_av_map_with_keys()?)?;
+        if let Some(v) = self.values.get_mut(":sk1") {
+            *v = i.sort_key.value;
+        } else {
+            self.values.insert(i.sort_key.field, i.sort_key.value);
+        }
         self.exp_appendix = String::from("and #sk1 >= :sk1");
         Ok(self)
     }
@@ -141,12 +153,19 @@ impl Deez {
         Deez { client: c }
     }
 
-    pub fn put(&self, entity: &impl DeezEntity) -> DeezResult<PutItemFluentBuilder> {
+    pub fn create(&self, entity: &impl DeezEntity) -> DeezResult<PutItemFluentBuilder> {
+        let av_map = entity.to_av_map_with_keys()?;
+        let i = entity.get_composed_index(&Index::Primary, &av_map)?;
         Ok(self
             .client
             .put_item()
             .table_name(entity.meta().table)
-            .set_item(Some(entity.to_av_map_with_keys()?)))
+            .condition_expression("attribute_not_exists(#pk) AND attribute_not_exists(#sk)")
+            .set_expression_attribute_names(Some(HashMap::from([
+                ("#pk".to_string(), i.partition_key.field),
+                ("#sk".to_string(), i.sort_key.field),
+            ])))
+            .set_item(Some(av_map)))
     }
 
     pub fn batch_write(&self) -> DeezBatchWriteBuilder {
@@ -156,8 +175,8 @@ impl Deez {
         }
     }
 
-    pub fn lulw<'a>(&self, index: Index, entity: &impl DeezEntity) -> DeezResult<DeezQueryBuilder> {
-        let i = entity.ligma(&index)?;
+    pub fn query_2(&self, index: Index, entity: &impl DeezEntity) -> DeezResult<DeezQueryBuilder> {
+        let i = entity.get_composed_index(&index, &entity.to_av_map_with_keys()?)?;
 
         let mut query = self.client.query().table_name(entity.meta().table);
         if index != Index::Primary {
@@ -174,7 +193,7 @@ impl Deez {
         Ok(DeezQueryBuilder {
             index,
             query,
-            exp: String::from("#pk = :pk1"),
+            exp: String::from("#pk = :pk"),
             exp_appendix: String::from("and begins_with(#sk1, :sk1)"), // default expression
             names,
             values,
@@ -182,7 +201,7 @@ impl Deez {
     }
 
     pub fn query(&self, index: Index, entity: &impl DeezEntity) -> DeezResult<QueryFluentBuilder> {
-        let i = entity.ligma(&index)?;
+        let i = entity.get_composed_index(&index, &entity.to_av_map_with_keys()?)?;
         let pkf = i.partition_key.field;
         let skf = i.sort_key.field;
 
@@ -329,11 +348,13 @@ pub trait DeezMeta {
     fn generated() -> Self;
 }
 
+#[derive(Debug)]
 pub struct IndexKeysJoined {
     pub partition_key: KeyJoined,
     pub sort_key: KeyJoined,
 }
 
+#[derive(Debug)]
 pub struct KeyJoined {
     pub field: String,
     pub value: AttributeValue,
@@ -357,14 +378,18 @@ pub trait DeezEntity: DeezMeta {
         Ok(v)
     }
 
-    fn ligma(&self, index: &Index) -> DeezResult<IndexKeysJoined> {
+    fn get_composed_index(
+        &self,
+        index: &Index,
+        av_map: &HashMap<String, AttributeValue>,
+    ) -> DeezResult<IndexKeysJoined> {
         let indexes = self.indexes();
         let index_keys = indexes
             .get(&index)
             .ok_or(DeezError::UnknownIndex(index.to_string()))?;
         let pkf = index_keys.partition_key.field;
         let skf = index_keys.sort_key.field;
-        let av_map = self.to_av_map_with_keys()?;
+        // let av_map = self.to_av_map_with_keys()?;
         Ok(IndexKeysJoined {
             partition_key: KeyJoined {
                 field: pkf.to_string(),
