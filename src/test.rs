@@ -339,7 +339,7 @@ mod tests {
 
             let c = d
                 .query(
-                    Index::Gsi1("gsi1".to_string()),
+                    GSI1,
                     &Foo {
                         foo_string_2: "deez".to_string(),
                         ..Default::default()
