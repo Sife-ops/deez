@@ -89,12 +89,22 @@ pub struct DeezQueryBuilder {
 
 // todo: `where` clause
 impl DeezQueryBuilder {
+    // fn set_sk1(
+    //     &self,
+    //     m: &mut HashMap<String, AttributeValue>,
+    //     v: AttributeValue,
+    // ) -> DeezResult<()> {
+    //     *m.get_mut(":sk1")
+    //         .ok_or(DeezError::MapKey(":sk1".to_string()))? = v;
+    //     Ok(())
+    // }
+
     pub fn begins(mut self, entity: &impl DeezEntity) -> DeezResult<DeezQueryBuilder> {
         let i = entity.get_composed_index(&self.index, &entity.to_av_map_with_keys()?)?;
         *self
             .values
-            .get_mut(&i.sort_key.field)
-            .ok_or(DeezError::MapKey(i.sort_key.field))? = i.sort_key.value;
+            .get_mut(":sk1")
+            .ok_or(DeezError::MapKey(":sk1".to_string()))? = i.sort_key.value;
         Ok(self)
     }
 
@@ -108,8 +118,8 @@ impl DeezQueryBuilder {
         let i2 = entity2.get_composed_index(&self.index, &entity2.to_av_map_with_keys()?)?;
         *self
             .values
-            .get_mut(&i1.sort_key.field)
-            .ok_or(DeezError::MapKey(i1.sort_key.field))? = i1.sort_key.value;
+            .get_mut(":sk1")
+            .ok_or(DeezError::MapKey(":sk1".to_string()))? = i1.sort_key.value;
         self.values.insert(":sk2".to_string(), i2.sort_key.value);
         self.exp_appendix = String::from("and #sk1 BETWEEN :sk1 AND :sk2");
         Ok(self)
@@ -118,11 +128,10 @@ impl DeezQueryBuilder {
     // todo: lte
     pub fn lt(mut self, entity: &impl DeezEntity) -> DeezResult<DeezQueryBuilder> {
         let i = entity.get_composed_index(&self.index, &entity.to_av_map_with_keys()?)?;
-        if let Some(v) = self.values.get_mut(":sk1") {
-            *v = i.sort_key.value;
-        } else {
-            self.values.insert(i.sort_key.field, i.sort_key.value);
-        }
+        *self
+            .values
+            .get_mut(":sk1")
+            .ok_or(DeezError::MapKey(":sk1".to_string()))? = i.sort_key.value;
         self.exp_appendix = String::from("and #sk1 < :sk1");
         Ok(self)
     }
@@ -130,11 +139,10 @@ impl DeezQueryBuilder {
     // todo: gt
     pub fn gte(mut self, entity: &impl DeezEntity) -> DeezResult<DeezQueryBuilder> {
         let i = entity.get_composed_index(&self.index, &entity.to_av_map_with_keys()?)?;
-        if let Some(v) = self.values.get_mut(":sk1") {
-            *v = i.sort_key.value;
-        } else {
-            self.values.insert(i.sort_key.field, i.sort_key.value);
-        }
+        *self
+            .values
+            .get_mut(":sk1")
+            .ok_or(DeezError::MapKey(":sk1".to_string()))? = i.sort_key.value;
         self.exp_appendix = String::from("and #sk1 >= :sk1");
         Ok(self)
     }
