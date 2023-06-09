@@ -169,7 +169,7 @@ pub fn derive(input: TokenStream) -> TokenStream {
                             "${}#{}{}",
                             self.meta().service,
                             self.meta().entity,
-                            index.partition_key._join_composite(&av_map)?,
+                            index.partition_key.join_composite(&av_map)?,
                         ))
                     );
                     av_map.insert(
@@ -177,7 +177,7 @@ pub fn derive(input: TokenStream) -> TokenStream {
                         AttributeValue::S(format!(
                             "${}{}",
                             self.meta().entity,
-                            index.sort_key._join_composite(&av_map)?,
+                            index.sort_key.join_composite(&av_map)?,
                         ))
                     );
                 }
@@ -214,6 +214,7 @@ pub fn derive(input: TokenStream) -> TokenStream {
                 let a = $d
                     .query($i, &$e)
                     .unwrap()
+                    .build()
                     .send()
                     .await
                     .unwrap();

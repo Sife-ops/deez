@@ -5,7 +5,7 @@ mod test;
 use aws_sdk_dynamodb::types::AttributeValue;
 use aws_sdk_dynamodb::Client;
 pub use deez_derive::DeezEntity;
-use error::DeezError;
+pub use error::DeezError;
 use std::collections::HashMap;
 
 type DeezResult<T> = Result<T, DeezError>;
@@ -30,18 +30,18 @@ pub struct IndexKeys<'a> {
 #[derive(Debug)]
 pub struct Key<'a> {
     pub field: &'a str,
-    pub composite: Vec<String>, // todo: Vec<&'a str>?
+    pub composite: Vec<&'a str>, // todo: Vec<&'a str>?
 }
 
 impl Key<'_> {
-    fn _join_composite(&self, attrs: &HashMap<String, AttributeValue>) -> DeezResult<String> {
+    pub fn join_composite(&self, attrs: &HashMap<String, AttributeValue>) -> DeezResult<String> {
         let mut j = String::new();
         for c in self.composite.iter() {
-            let a = attrs.get(c).ok_or(DeezError::MapKey(c.to_string()))?;
+            let a = attrs
+                .get(&c.to_string())
+                .ok_or(DeezError::MapKey(c.to_string()))?;
             let s = match a {
                 AttributeValue::S(b) => b.to_string(),
-                // AttributeValue::N(b) => b.to_string(),
-                // AttributeValue::Bool(b) => b.to_string(),
                 _ => return Err(DeezError::InvalidComposite(c.to_string())),
             };
             if s.len() < 1 {

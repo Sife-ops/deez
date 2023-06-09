@@ -32,7 +32,7 @@ mod tests {
                 IndexKeys {
                     partition_key: Key {
                         field: "pk",
-                        composite: vec!["foo_string_1".to_string()],
+                        composite: vec!["foo_string_1"],
                     },
                     sort_key: Key {
                         field: "sk",
@@ -45,11 +45,11 @@ mod tests {
                 IndexKeys {
                     partition_key: Key {
                         field: "gsi1pk",
-                        composite: vec!["foo_string_2".to_string()],
+                        composite: vec!["foo_string_2"],
                     },
                     sort_key: Key {
                         field: "gsi1sk",
-                        composite: vec!["foo_string_3".to_string(), "foo_string_4".to_string()],
+                        composite: vec!["foo_string_3", "foo_string_4"],
                     },
                 },
             );

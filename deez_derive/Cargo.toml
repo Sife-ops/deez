@@ -1,6 +1,6 @@
 [package]
 name = "deez_derive"
-version = "0.1.0"
+version = "0.1.1"
 edition = "2021"
 authors = ["Wyatt Goettsch <wyatt.goettsch@gmail.com>"]
 description = "derive macros for deez"
