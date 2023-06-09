@@ -3,6 +3,7 @@ name = "deez_derive"
 version = "0.1.0"
 edition = "2021"
 authors = ["Wyatt Goettsch <wyatt.goettsch@gmail.com>"]
+description = "derive macros for deez"
 license = "AGPL-3.0-or-later"
 repository = "https://github.com/Sife-ops/deez"
 keywords = ["dynamodb"]
