@@ -211,81 +211,59 @@ impl Deez {
     // todo: scan
     // todo: batch get
 
+    // todo: update builder
     pub fn update(&self, entity: &impl DeezEntity) -> DeezResult<UpdateItemFluentBuilder> {
-        // look up entity's pk and sk field name
-        let indexes = entity.indexes();
-        let primary_index = indexes
-            .get(&Index::Primary)
-            .ok_or(DeezError::UnknownIndex(Index::Primary.to_string()))?;
-        let pk_field = primary_index.partition_key.field;
-        let sk_field = primary_index.sort_key.field;
-
-        // build update expression from the AttributeValue map
-        let av_map = entity.to_av_map();
         let mut update_expression = String::from("SET");
+        let av_map = entity.to_av_map();
         av_map.iter().enumerate().for_each(|(i, v)| match i {
             0 => update_expression.push_str(&format!(" #{} = :{}", v.0, v.0)),
             _ => update_expression.push_str(&format!(", #{} = :{}", v.0, v.0)),
         });
 
-        let av_map_keys = entity.to_av_map_with_keys()?;
+        let i = entity.get_composed_index(&Index::Primary, &entity.to_av_map_with_keys()?)?;
         let mut request = self
             .client
             .update_item()
             .table_name(entity.meta().table)
-            .key(
-                pk_field,
-                av_map_keys
-                    .get(pk_field)
-                    .ok_or(DeezError::MapKey(pk_field.to_string()))?
-                    .clone(),
-            )
-            .key(
-                sk_field,
-                av_map_keys
-                    .get(sk_field)
-                    .ok_or(DeezError::MapKey(sk_field.to_string()))?
-                    .clone(),
-            )
-            .update_expression(update_expression);
+            .update_expression(update_expression)
+            .set_key(Some(HashMap::from([
+                (i.partition_key.field, i.partition_key.value),
+                (i.sort_key.field, i.sort_key.value),
+            ])));
 
-        for (k, _) in av_map.iter() {
-            request = request.expression_attribute_names(format!("#{}", k), k);
-        }
         for (k, v) in av_map.iter() {
+            request = request.expression_attribute_names(format!("#{}", k), k);
             request = request.expression_attribute_values(format!(":{}", k), v.clone());
         }
 
         Ok(request)
     }
 
-    pub fn delete(&self, entity: &impl DeezEntity) -> DeezResult<DeleteItemFluentBuilder> {
-        let indexes = entity.indexes();
-        let primary_index = indexes
-            .get(&Index::Primary)
-            .ok_or(DeezError::UnknownIndex(Index::Primary.to_string()))?;
-        let pk_field = primary_index.partition_key.field;
-        let sk_field = primary_index.sort_key.field;
+    fn delete_(&self, entity: &impl DeezEntity) -> DeleteItemFluentBuilder {
+        self.client.delete_item().table_name(entity.meta().table)
+    }
 
-        let av_map_keys = entity.to_av_map_with_keys()?;
+    pub fn delete(&self, entity: &impl DeezEntity) -> DeezResult<DeleteItemFluentBuilder> {
+        let i = entity.get_composed_index(&Index::Primary, &entity.to_av_map_with_keys()?)?;
+        Ok(self.delete_(entity).set_key(Some(HashMap::from([
+            (i.partition_key.field, i.partition_key.value),
+            (i.sort_key.field, i.sort_key.value),
+        ]))))
+    }
+
+    pub fn remove(&self, entity: &impl DeezEntity) -> DeezResult<DeleteItemFluentBuilder> {
+        let i = entity.get_composed_index(&Index::Primary, &entity.to_av_map_with_keys()?)?;
         Ok(self
-            .client
-            .delete_item()
-            .table_name(entity.meta().table)
-            .key(
-                pk_field,
-                av_map_keys
-                    .get(pk_field)
-                    .ok_or(DeezError::MapKey(pk_field.to_string()))?
-                    .clone(),
-            )
-            .key(
-                sk_field,
-                av_map_keys
-                    .get(sk_field)
-                    .ok_or(DeezError::MapKey(sk_field.to_string()))?
-                    .clone(),
-            ))
+            .delete_(entity)
+            .condition_expression("attribute_not_exists(#pk) AND attribute_not_exists(#sk)")
+            .set_expression_attribute_names(Some(HashMap::from([
+                ("#pk".to_string(), i.partition_key.field.clone()),
+                ("#sk".to_string(), i.sort_key.field.clone()),
+            ])))
+            .set_key(Some(HashMap::from([
+                (i.partition_key.field, i.partition_key.value),
+                (i.sort_key.field, i.sort_key.value),
+            ]))))
     }
 }
 
