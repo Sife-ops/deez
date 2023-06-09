@@ -11,7 +11,7 @@ use std::collections::HashMap;
 type DeezResult<T> = Result<T, DeezError>;
 
 pub struct Deez {
-    client: Client, // todo: arc?
+    client: Client,
 }
 
 #[derive(Debug)]
@@ -30,26 +30,26 @@ pub struct IndexKeys<'a> {
 #[derive(Debug)]
 pub struct Key<'a> {
     pub field: &'a str,
-    pub composite: Vec<&'a str>, // todo: Vec<&'a str>?
+    pub composite: Vec<&'a str>,
 }
 
 impl Key<'_> {
     pub fn join_composite(&self, attrs: &HashMap<String, AttributeValue>) -> DeezResult<String> {
-        let mut j = String::new();
-        for c in self.composite.iter() {
-            let a = attrs
-                .get(&c.to_string())
-                .ok_or(DeezError::MapKey(c.to_string()))?;
-            let s = match a {
+        let mut joined = String::new();
+        for composite in self.composite.iter() {
+            let av = attrs
+                .get(&composite.to_string())
+                .ok_or(DeezError::MapKey(composite.to_string()))?;
+            let value_string = match av {
                 AttributeValue::S(b) => b.to_string(),
-                _ => return Err(DeezError::InvalidComposite(c.to_string())),
+                _ => return Err(DeezError::InvalidComposite(composite.to_string())),
             };
-            if s.len() < 1 {
-                return Ok(j);
+            if value_string.len() < 1 {
+                return Ok(joined);
             }
-            j.push_str(&format!("#{}_{}", c, s));
+            joined.push_str(&format!("#{}_{}", composite, value_string));
         }
-        Ok(j)
+        Ok(joined)
     }
 }
 
