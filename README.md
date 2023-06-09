@@ -111,7 +111,7 @@ async fn main() {
 
     // create
     deez.create(&Task {
-        project: "foo project".to_string(),
+        project: "foo_project".to_string(),
         employee: "Bill Bar".to_string(),
         description: "nothin' but chillin' 20's".to_string(),
         ..Task::generated()
@@ -126,7 +126,7 @@ async fn main() {
         deez,
         GSI1,
         Task {
-            project: "foo project".to_string(),
+            project: "foo_project".to_string(),
             ..Default::default()
         }
     );

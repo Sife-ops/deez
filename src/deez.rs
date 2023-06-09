@@ -2,7 +2,7 @@ use crate::Deez;
 use aws_sdk_dynamodb::Client;
 
 impl Deez {
-    pub fn new(c: Client) -> Self {
+    pub fn new(c: Client) -> Deez {
         Deez { client: c }
     }
 

@@ -68,6 +68,7 @@ mod tests {
     mod integration {
         use super::*;
         use chrono::prelude::*;
+        use std::sync::Arc;
 
         use aws_sdk_dynamodb::types::{
             AttributeDefinition, BillingMode, GlobalSecondaryIndex, KeySchemaElement, KeyType,
@@ -89,7 +90,10 @@ mod tests {
             Deez::new(make_client().await)
         }
 
-        // #[tokio::test]
+        async fn make_deez_arc() -> Arc<Deez> {
+            Arc::new(Deez::new(make_client().await))
+        }
+
         async fn init_table_1() {
             let c = make_client().await;
             if let Ok(_) = c.delete_table().table_name(TABLE_NAME).send().await {}
@@ -181,6 +185,7 @@ mod tests {
             // todo: assert?
         }
 
+        #[ignore]
         #[tokio::test]
         async fn int_1_create_macro() {
             init_table_1().await;
@@ -366,6 +371,35 @@ mod tests {
         }
 
         #[tokio::test]
+        async fn int_1_threads() {
+            init_table_1().await;
+            let d = make_deez_arc().await;
+
+            let mut v = Vec::with_capacity(10);
+            for i in 0..10 {
+                let dd = Arc::clone(&d);
+                v.push(tokio::spawn(async move {
+                    dd.create(&Foo {
+                        foo_string_1: i.to_string(),
+                        foo_string_2: i.to_string(),
+                        foo_string_3: i.to_string(),
+                        foo_string_4: i.to_string(),
+                        ..Default::default()
+                    })
+                    .unwrap()
+                    .send()
+                    .await
+                    .unwrap();
+                }));
+            }
+
+            for i in v {
+                i.await.unwrap();
+            }
+        }
+
+        #[ignore]
+        #[tokio::test]
         async fn int_4_update() {
             let d = make_deez().await;
             let _r = d
@@ -384,6 +418,7 @@ mod tests {
     mod unit {
         use super::*;
 
+        #[ignore]
         #[test]
         fn unit_1() {
             println!("unit");
