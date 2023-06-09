@@ -322,7 +322,7 @@ mod tests {
 
             let a = d
                 .query(
-                    Index::Primary,
+                    PRIMARY,
                     &Foo {
                         foo_string_1: "foo".to_string(),
                         ..Default::default()

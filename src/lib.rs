@@ -396,31 +396,31 @@ pub trait DeezEntity: DeezMeta {
 }
 
 #[derive(Eq, Hash, PartialEq)]
-pub enum Index<'a> {
+pub enum Index {
     Primary,
-    Gsi1(&'a str), // todo: use &'a str
-    Gsi2(&'a str),
-    Gsi3(&'a str),
-    Gsi4(&'a str),
-    Gsi5(&'a str),
-    Gsi6(&'a str),
-    Gsi7(&'a str),
-    Gsi8(&'a str),
-    Gsi9(&'a str),
-    Gsi10(&'a str),
-    Gsi11(&'a str),
-    Gsi12(&'a str),
-    Gsi13(&'a str),
-    Gsi14(&'a str),
-    Gsi15(&'a str),
-    Gsi16(&'a str),
-    Gsi17(&'a str),
-    Gsi18(&'a str),
-    Gsi19(&'a str),
-    Gsi20(&'a str),
+    Gsi1(&'static str),
+    Gsi2(&'static str),
+    Gsi3(&'static str),
+    Gsi4(&'static str),
+    Gsi5(&'static str),
+    Gsi6(&'static str),
+    Gsi7(&'static str),
+    Gsi8(&'static str),
+    Gsi9(&'static str),
+    Gsi10(&'static str),
+    Gsi11(&'static str),
+    Gsi12(&'static str),
+    Gsi13(&'static str),
+    Gsi14(&'static str),
+    Gsi15(&'static str),
+    Gsi16(&'static str),
+    Gsi17(&'static str),
+    Gsi18(&'static str),
+    Gsi19(&'static str),
+    Gsi20(&'static str),
 }
 
-impl std::fmt::Display for Index<'a> {
+impl std::fmt::Display for Index {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             Index::Primary => write!(f, "primary"),
