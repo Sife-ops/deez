@@ -1,6 +1,8 @@
 #[cfg(test)]
 mod tests {
     use crate::*;
+    use aws_sdk_dynamodb::types::AttributeValue;
+    use std::collections::HashMap;
 
     const TABLE_NAME: &str = "footable";
     const PRIMARY: Index = Index::Primary;
