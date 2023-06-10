@@ -7,9 +7,9 @@ impl super::Deez {
     pub fn query(&self, index: Index, entity: &impl DeezEntity) -> DeezResult<DeezQueryBuilder> {
         let i = entity.get_composed_index(&index, &entity.to_av_map_with_keys()?)?;
 
-        let mut query = self.client.query().table_name(entity.meta().table);
+        let mut builder = self.client.query().table_name(entity.meta().table);
         if index != Index::Primary {
-            query = query.index_name(index.to_string());
+            builder = builder.index_name(index.to_string());
         }
 
         let mut names = HashMap::new();
@@ -21,7 +21,7 @@ impl super::Deez {
 
         Ok(DeezQueryBuilder {
             index,
-            query,
+            builder,
             exp: String::from("#pk = :pk"),
             exp_appendix: String::from("and begins_with(#sk1, :sk1)"), // default expression
             names,
@@ -32,7 +32,7 @@ impl super::Deez {
 
 pub struct DeezQueryBuilder {
     pub index: Index,
-    pub query: QueryFluentBuilder,
+    pub builder: QueryFluentBuilder,
     pub exp: String,
     pub exp_appendix: String,
     pub names: HashMap<String, String>,
@@ -101,7 +101,7 @@ impl DeezQueryBuilder {
 
     // todo: execution options
     pub fn build(self) -> QueryFluentBuilder {
-        self.query
+        self.builder
             .key_condition_expression(format!("{} {}", self.exp, self.exp_appendix))
             .set_expression_attribute_names(Some(self.names))
             .set_expression_attribute_values(Some(self.values))

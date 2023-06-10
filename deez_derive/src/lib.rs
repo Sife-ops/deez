@@ -34,6 +34,9 @@ pub fn derive(input: TokenStream) -> TokenStream {
 
     let mut inserts = quote! {};
     let mut reads = quote! {};
+    let mut partial_fields = quote! {};
+    let mut partial_inserts = quote! {};
+
     for field in fields.iter() {
         let field_ident = field.ident.as_ref().unwrap();
 
@@ -101,7 +104,13 @@ pub fn derive(input: TokenStream) -> TokenStream {
                         .ok_or(DeezError::MapKey(#field_name.to_string()))?
                         .as_s()?
                         .clone(),
-                }
+                };
+                partial_inserts = quote! {
+                    #partial_inserts
+                    if let Some(f) = &self.#field_ident {
+                        av_map.insert(#field_name.to_string(), AttributeValue::S(f.clone()));
+                    }
+                };
             }
             "bool" => {
                 inserts = quote! {
@@ -115,7 +124,13 @@ pub fn derive(input: TokenStream) -> TokenStream {
                         .ok_or(DeezError::MapKey(#field_name.to_string()))?
                         .as_bool()?
                         .clone(),
-                }
+                };
+                partial_inserts = quote! {
+                    #partial_inserts
+                    if let Some(f) = &self.#field_ident {
+                        av_map.insert(#field_name.to_string(), AttributeValue::Bool(f.clone()));
+                    }
+                };
             }
             // DynamoDB attribute of type Number can store 126-bit integers (or
             // 127-bit unsigned integers, with serious caveats).
@@ -134,15 +149,28 @@ pub fn derive(input: TokenStream) -> TokenStream {
                         .clone()
                         .parse::<#field_type>()?,
                 };
+                partial_inserts = quote! {
+                    #partial_inserts
+                    if let Some(f) = &self.#field_ident {
+                        av_map.insert(#field_name.to_string(), AttributeValue::N(f.to_string()));
+                    }
+                };
             }
             &_ => panic!(
                 "unsupported type: {}",
                 field_type.clone().into_token_stream().to_string()
             ),
         }
+
+        partial_fields = quote! {
+            #partial_fields
+            pub #field_ident: Option<#field_type>,
+        };
     }
 
     let name = &ast.ident;
+
+    let struct_partial = format_ident!("{}Partial", name);
 
     let macro_create = format_ident!("create_{}", name);
     // let macro_batch_write = format_ident!("batch_write_{}", name);
@@ -158,7 +186,7 @@ pub fn derive(input: TokenStream) -> TokenStream {
                 #inserts
                 av_map
             }
-            // todo: return two hashmaps
+
             fn to_av_map_with_keys(&self) -> Result<HashMap<String, AttributeValue>, DeezError> {
                 let mut av_map = self.to_av_map();
                 let indexes = self.indexes();
@@ -183,11 +211,25 @@ pub fn derive(input: TokenStream) -> TokenStream {
                 }
                 Ok(av_map)
             }
+
             fn from_av_map(av_map: &HashMap<String, AttributeValue>) -> Result<#name, DeezError> {
                 Ok(#name {
                     #reads
                     ..Default::default()
                 })
+            }
+        }
+
+        #[derive(Default, Debug)]
+        pub struct #struct_partial {
+            #partial_fields
+        }
+
+        impl DeezEntityPartial for #struct_partial {
+            fn to_av_map(&self) -> HashMap<String, AttributeValue> {
+                let mut av_map: HashMap<String, AttributeValue> = HashMap::new();
+                #partial_inserts
+                av_map
             }
         }
 

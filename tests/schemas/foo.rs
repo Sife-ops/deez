@@ -4,7 +4,7 @@ use aws_sdk_dynamodb::types::{
 };
 use std::collections::HashMap;
 
-use deez::{DeezEntity, DeezError, DeezMeta, Index, IndexKeys, Key, Meta};
+use deez::{DeezEntity, DeezEntityPartial, DeezError, DeezMeta, Index, IndexKeys, Key, Meta};
 
 use super::make_client;
 

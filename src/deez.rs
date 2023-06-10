@@ -84,3 +84,7 @@ pub trait DeezEntity: DeezMeta {
         })
     }
 }
+
+pub trait DeezEntityPartial {
+    fn to_av_map(&self) -> HashMap<String, AttributeValue>;
+}
