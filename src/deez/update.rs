@@ -23,6 +23,10 @@ impl super::Deez {
             values: HashMap::new(),
         })
     }
+
+    // todo: add
+    // todo: subtract
+    // todo: remove
 }
 
 #[derive(Debug)]

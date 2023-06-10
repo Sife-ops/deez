@@ -56,19 +56,6 @@ pub mod mocks {
                     },
                 },
             );
-            // m.insert(
-            //     Index::Gsi1("gsi1"),
-            //     IndexKeys {
-            //         partition_key: Key {
-            //             field: "gsi1pk",
-            //             composite: vec!["foo_string_2"],
-            //         },
-            //         sort_key: Key {
-            //             field: "gsi1sk",
-            //             composite: vec!["foo_string_3", "foo_string_4"],
-            //         },
-            //     },
-            // );
             m
         }
 

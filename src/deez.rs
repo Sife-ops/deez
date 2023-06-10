@@ -15,9 +15,6 @@ impl Deez {
     pub fn new(c: Client) -> Deez {
         Deez { client: c }
     }
-
-    // todo: scan
-    // todo: batch get
 }
 
 mod create;
@@ -29,6 +26,10 @@ mod delete;
 mod query;
 
 mod update;
+
+// todo: scan
+// todo: batch get
+// todo: patch
 
 pub trait DeezMeta {
     fn meta(&self) -> Meta;
