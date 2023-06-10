@@ -1,5 +1,4 @@
 mod deez;
-mod test;
 mod types;
 
 pub use deez::{Deez, DeezEntity, DeezMeta, DeezResult};
