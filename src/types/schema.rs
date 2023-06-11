@@ -1,60 +1,83 @@
-use aws_sdk_dynamodb::types::AttributeValue;
+use crate::deez::DeezEntity;
+use bevy_reflect::GetField;
 use std::collections::HashMap;
-use crate::DeezError;
-use crate::DeezResult;
 
 #[derive(Debug)]
-pub struct Meta<'a> {
-    pub table: &'a str,
-    pub service: &'a str,
-    pub entity: &'a str,
+pub enum DynamoType {
+    DynamoString,
+    DynamoNumber,
+    DynamoBool,
 }
 
 #[derive(Debug)]
-pub struct IndexKeys<'a> {
-    pub partition_key: Key<'a>,
-    pub sort_key: Key<'a>,
+pub struct Schema {
+    pub table: &'static str,
+    pub service: &'static str,
+    pub entity: &'static str,
+    pub primary_index: IndexKeys,
+    pub global_secondary_indexes: HashMap<Index, IndexKeys>,
+    pub attributes: HashMap<&'static str, Attribute>,
 }
 
 #[derive(Debug)]
-pub struct IndexKeysJoined {
-    pub partition_key: KeyJoined,
-    pub sort_key: KeyJoined,
+pub struct IndexKeys {
+    pub partition_key: Key,
+    pub sort_key: Key,
 }
 
 #[derive(Debug)]
-pub struct Key<'a> {
-    pub field: &'a str,
-    pub composite: Vec<&'a str>,
+pub struct IndexKeysComposed {
+    pub partition_key: (String, String),
+    pub sort_key: (String, String),
 }
 
-impl Key<'_> {
-    pub fn join_composite(&self, attrs: &HashMap<String, AttributeValue>) -> DeezResult<String> {
-        let mut joined = String::new();
-        for composite in self.composite.iter() {
-            let av = attrs
-                .get(&composite.to_string())
-                .ok_or(DeezError::MapKey(composite.to_string()))?;
-            let value_string = match av {
-                AttributeValue::S(b) => b.to_string(),
-                _ => return Err(DeezError::InvalidComposite(composite.to_string())),
-            };
-            if value_string.len() < 1 {
-                return Ok(joined);
-            }
-            joined.push_str(&format!("#{}_{}", composite, value_string));
+impl IndexKeys {
+    pub fn composed_index(&self, e: &impl DeezEntity) -> IndexKeysComposed {
+        let a = e.schema();
+        IndexKeysComposed {
+            partition_key: (
+                self.partition_key.field.to_string(),
+                format!(
+                    "${}#{}{}",
+                    a.service,
+                    a.entity,
+                    self.partition_key.composed_key(e)
+                ),
+            ),
+            sort_key: (
+                self.sort_key.field.to_string(),
+                format!("${}{}", a.entity, self.sort_key.composed_key(e)),
+            ),
         }
-        Ok(joined)
     }
 }
 
 #[derive(Debug)]
-pub struct KeyJoined {
-    pub field: String,
-    pub value: AttributeValue,
+pub struct Key {
+    pub field: &'static str,
+    pub composite: Vec<&'static str>,
 }
 
-#[derive(Eq, Hash, PartialEq)]
+impl Key {
+    pub fn composed_key(&self, e: &impl DeezEntity) -> String {
+        let mut a = String::new();
+        for b in self.composite.iter() {
+            // todo: number types
+            let c = e.get_field::<String>(b).unwrap();
+            a.push_str(&format!("#{}_{}", b, c));
+        }
+        a
+    }
+}
+
+#[derive(Debug)]
+pub struct Attribute {
+    pub dynamo_type: DynamoType,
+    // pub rename: Option<&'static str> ???
+    // pub required: bool,
+}
+
+#[derive(Eq, Hash, PartialEq, Debug)]
 pub enum Index {
     Primary,
     Gsi1(&'static str),

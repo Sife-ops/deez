@@ -5,7 +5,8 @@ pub mod mocks {
     use std::collections::HashMap;
 
     use crate::{
-        Deez, DeezEntity, DeezEntityPartial, DeezError, DeezMeta, Index, IndexKeys, Key, Meta,
+        Attribute, Deez, DeezEntity, DeezError, DeezSchema, DynamoType, Index, IndexKeys, Key,
+        Reflect, Schema,
     };
 
     pub async fn make_mock_client() -> Client {
@@ -22,7 +23,7 @@ pub mod mocks {
         Deez::new(make_mock_client().await)
     }
 
-    #[derive(DeezEntity, Debug, Default)]
+    #[derive(DeezEntity, Debug, Default, Reflect)]
     pub struct Foo {
         pub foo_string_1: String,
         pub foo_string_2: String,
@@ -32,20 +33,15 @@ pub mod mocks {
         pub foo_bool: bool,
     }
 
-    impl DeezMeta for Foo {
-        fn meta(&self) -> Meta {
-            Meta {
+    pub const GSI1: Index = Index::Gsi1("gsi1");
+
+    impl DeezSchema for Foo {
+        fn schema(&self) -> Schema {
+            Schema {
                 table: "footable",
                 service: "fooservice",
                 entity: "fooentity",
-            }
-        }
-
-        fn indexes(&self) -> HashMap<Index, IndexKeys> {
-            let mut m = HashMap::new();
-            m.insert(
-                Index::Primary,
-                IndexKeys {
+                primary_index: IndexKeys {
                     partition_key: Key {
                         field: "pk",
                         composite: vec!["foo_string_1"],
@@ -55,14 +51,57 @@ pub mod mocks {
                         composite: vec![],
                     },
                 },
-            );
-            m
-        }
-
-        fn generated() -> Self {
-            Foo {
-                foo_usize: 33,
-                ..Default::default()
+                global_secondary_indexes: HashMap::from([(
+                    GSI1,
+                    IndexKeys {
+                        partition_key: Key {
+                            field: "gsi1pk",
+                            composite: vec!["foo_string_2"],
+                        },
+                        sort_key: Key {
+                            field: "gsi1sk",
+                            composite: vec!["foo_string_1"],
+                        },
+                    },
+                )]),
+                attributes: HashMap::from([
+                    (
+                        "foo_string_1",
+                        Attribute {
+                            dynamo_type: DynamoType::DynamoString,
+                        },
+                    ),
+                    (
+                        "foo_string_2",
+                        Attribute {
+                            dynamo_type: DynamoType::DynamoString,
+                        },
+                    ),
+                    (
+                        "foo_string_3",
+                        Attribute {
+                            dynamo_type: DynamoType::DynamoString,
+                        },
+                    ),
+                    (
+                        "foo_string_4",
+                        Attribute {
+                            dynamo_type: DynamoType::DynamoString,
+                        },
+                    ),
+                    (
+                        "foo_usize",
+                        Attribute {
+                            dynamo_type: DynamoType::DynamoNumber,
+                        },
+                    ),
+                    (
+                        "foo_bool",
+                        Attribute {
+                            dynamo_type: DynamoType::DynamoBool,
+                        },
+                    ),
+                ]),
             }
         }
     }

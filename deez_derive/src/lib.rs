@@ -1,6 +1,6 @@
 use proc_macro::{self, TokenStream};
 use quote::{format_ident, quote, ToTokens};
-use syn::{parse_macro_input, DeriveInput, Expr, Lit};
+use syn::{parse_macro_input, DeriveInput};
 
 // code references:
 // https://github.com/ex0dus-0x/structmap/blob/main/structmap-derive/src/lib.rs
@@ -16,13 +16,6 @@ use syn::{parse_macro_input, DeriveInput, Expr, Lit};
 // Null(bool),
 // Ss(::std::vec::Vec<::std::string::String>),
 
-fn trim(c: &str) -> &str {
-    let mut d = c.chars();
-    d.next();
-    d.next_back();
-    d.as_str()
-}
-
 #[proc_macro_derive(DeezEntity, attributes(deez))]
 pub fn derive(input: TokenStream) -> TokenStream {
     let ast = parse_macro_input!(input as DeriveInput);
@@ -32,60 +25,14 @@ pub fn derive(input: TokenStream) -> TokenStream {
         _ => panic!("ast.data not a `Struct`"),
     };
 
-    let mut inserts = quote! {};
+    // let mut inserts = quote! {};
     let mut reads = quote! {};
-    let mut partial_fields = quote! {};
-    let mut partial_inserts = quote! {};
+    // let mut partial_fields = quote! {};
+    // let mut partial_inserts = quote! {};
 
     for field in fields.iter() {
         let field_ident = field.ident.as_ref().unwrap();
-
-        let mut field_name = field_ident.to_string();
-        let mut field_skip = false;
-
-        // todo: sus af, not enough experience with syn
-        // todo: parse floats when reading from the table
-        for attr in field.attrs.iter() {
-            if let Ok(ex) = attr.parse_args::<Expr>() {
-                match ex {
-                    Expr::Assign(ea) => {
-                        if let Expr::Path(ep) = *ea.left {
-                            match ep.path.segments.first().unwrap().ident.to_string().as_str() {
-                                "rename" => {
-                                    if let Expr::Lit(el) = *ea.right {
-                                        if let Lit::Str(ls) = el.lit {
-                                            let rename = ls.token().to_string();
-                                            field_name = trim(&rename).to_string();
-                                        }
-                                    }
-                                }
-                                &_ => {
-                                    // todo: do nothing or panic?
-                                }
-                            }
-                        }
-                    }
-                    Expr::Path(ep) => {
-                        match ep.path.segments.first().unwrap().ident.to_string().as_str() {
-                            "skip" => {
-                                field_skip = true;
-                            }
-                            &_ => {
-                                // todo: do nothing or panic?
-                            }
-                        }
-                    }
-                    _ => {
-                        // todo: do nothing or panic?
-                    }
-                }
-            }
-        }
-
-        if field_skip {
-            continue;
-        }
-
+        let field_name = field_ident.to_string();
         let field_type = match &field.ty {
             syn::Type::Path(b) => b.clone(),
             _ => panic!("field.ty not a `TypePath`"),
@@ -93,67 +40,48 @@ pub fn derive(input: TokenStream) -> TokenStream {
 
         match field_type.clone().into_token_stream().to_string().as_ref() {
             "String" => {
-                inserts = quote! {
-                    #inserts
-                    av_map.insert(#field_name.to_string(), AttributeValue::S(self.#field_ident.to_string()));
-                };
                 reads = quote! {
                     #reads
-                    #field_ident: av_map
+                    #field_ident: m
                         .get(#field_name)
-                        .ok_or(DeezError::MapKey(#field_name.to_string()))?
-                        .as_s()?
+                        // .ok_or(DeezError::MapKey(#field_name.to_string()))?
+                        .unwrap()
+                        // .as_s()?
+                        .as_s()
+                        .unwrap()
                         .clone(),
-                };
-                partial_inserts = quote! {
-                    #partial_inserts
-                    if let Some(f) = &self.#field_ident {
-                        av_map.insert(#field_name.to_string(), AttributeValue::S(f.clone()));
-                    }
                 };
             }
             "bool" => {
-                inserts = quote! {
-                    #inserts
-                    av_map.insert(#field_name.to_string(), AttributeValue::Bool(self.#field_ident));
-                };
                 reads = quote! {
                     #reads
-                    #field_ident: av_map
+                    #field_ident: m
                         .get(#field_name)
-                        .ok_or(DeezError::MapKey(#field_name.to_string()))?
-                        .as_bool()?
+                        // .ok_or(DeezError::MapKey(#field_name.to_string()))?
+                        .unwrap()
+                        // .as_bool()?
+                        .as_bool()
+                        .unwrap()
                         .clone(),
-                };
-                partial_inserts = quote! {
-                    #partial_inserts
-                    if let Some(f) = &self.#field_ident {
-                        av_map.insert(#field_name.to_string(), AttributeValue::Bool(f.clone()));
-                    }
                 };
             }
             // DynamoDB attribute of type Number can store 126-bit integers (or
             // 127-bit unsigned integers, with serious caveats).
             // https://docs.aws.amazon.com/amazondynamodb/latest/developerguide/HowItWorks.NamingRulesDataTypes.html#HowItWorks.DataTypes.Number
             "usize" | "isize" | "u8" | "i8" | "u16" | "i16" | "u32" | "i32" | "u64" | "i64" => {
-                inserts = quote! {
-                    #inserts
-                    av_map.insert(#field_name.to_string(), AttributeValue::N(self.#field_ident.to_string()));
-                };
                 reads = quote! {
                     #reads
-                    #field_ident: av_map
+                    #field_ident: m
                         .get(#field_name)
-                        .ok_or(DeezError::MapKey(#field_name.to_string()))?
-                        .as_n()?
+                        // .ok_or(DeezError::MapKey(#field_name.to_string()))?
+                        .unwrap()
+                        // .as_n()?
+                        .as_n()
+                        .unwrap()
                         .clone()
-                        .parse::<#field_type>()?,
-                };
-                partial_inserts = quote! {
-                    #partial_inserts
-                    if let Some(f) = &self.#field_ident {
-                        av_map.insert(#field_name.to_string(), AttributeValue::N(f.to_string()));
-                    }
+                        // .parse::<#field_type>()?,
+                        .parse::<#field_type>()
+                        .unwrap(),
                 };
             }
             &_ => panic!(
@@ -161,58 +89,15 @@ pub fn derive(input: TokenStream) -> TokenStream {
                 field_type.clone().into_token_stream().to_string()
             ),
         }
-
-        partial_fields = quote! {
-            #partial_fields
-            pub #field_ident: Option<#field_type>,
-        };
     }
 
     let name = &ast.ident;
-
-    let struct_partial = format_ident!("{}Partial", name);
-
-    let macro_create = format_ident!("create_{}", name);
-    // let macro_batch_write = format_ident!("batch_write_{}", name);
-    let macro_query = format_ident!("query_{}", name);
-    let macro_delete = format_ident!("delete_{}", name);
+    // let macro_query = format_ident!("query_{}", name);
 
     let (ig, tg, wc) = ast.generics.split_for_impl();
-
     let output = quote! {
         impl #ig DeezEntity for #name #tg #wc {
-            fn to_av_map(&self) -> HashMap<String, AttributeValue> {
-                let mut av_map = HashMap::new();
-                #inserts
-                av_map
-            }
-
-            fn to_av_map_with_keys(&self) -> Result<HashMap<String, AttributeValue>, DeezError> {
-                let mut av_map = self.to_av_map();
-                let indexes = self.indexes();
-                for (_, index) in indexes.iter() {
-                    av_map.insert(
-                        index.partition_key.field.to_string(),
-                        AttributeValue::S(format!(
-                            "${}#{}{}",
-                            self.meta().service,
-                            self.meta().entity,
-                            index.partition_key.join_composite(&av_map)?,
-                        ))
-                    );
-                    av_map.insert(
-                        index.sort_key.field.to_string(),
-                        AttributeValue::S(format!(
-                            "${}{}",
-                            self.meta().entity,
-                            index.sort_key.join_composite(&av_map)?,
-                        ))
-                    );
-                }
-                Ok(av_map)
-            }
-
-            fn from_av_map(av_map: &HashMap<String, AttributeValue>) -> Result<#name, DeezError> {
+            fn from_av_map(m: &HashMap<String, AttributeValue>) -> Result<#name, DeezError> {
                 Ok(#name {
                     #reads
                     ..Default::default()
@@ -220,62 +105,68 @@ pub fn derive(input: TokenStream) -> TokenStream {
             }
         }
 
-        #[derive(Default, Debug)]
-        pub struct #struct_partial {
-            #partial_fields
-        }
-
-        impl DeezEntityPartial for #struct_partial {
-            fn to_av_map(&self) -> HashMap<String, AttributeValue> {
-                let mut av_map: HashMap<String, AttributeValue> = HashMap::new();
-                #partial_inserts
-                av_map
+        impl From<&HashMap<String,AttributeValue>> for #name {
+            fn from(m: &HashMap<String,AttributeValue>) -> #name {
+                #name {
+                    #reads
+                    ..Default::default()
+                }
             }
         }
 
-        #[macro_export]
-        macro_rules! #macro_create {
-            ($d: ident, $e: expr) => {{
-                $d
-                    .create(&$e)
-                    .unwrap()
-                    .send()
-                    .await
-                    .unwrap()
-            }};
+        impl From<HashMap<String,AttributeValue>> for #name {
+            fn from(m: HashMap<String,AttributeValue>) -> #name {
+                #name {
+                    #reads
+                    ..Default::default()
+                }
+            }
         }
+
+        // #[macro_export]
+        // macro_rules! #macro_query {
+        //     ($d: ident, $i: ident, $e: expr) => {{
+        //         let a = $d
+        //             .query($i, &$e)
+        //             .unwrap()
+        //             .build()
+        //             .send()
+        //             .await
+        //             .unwrap();
+        //         let b = a.items().unwrap();
+        //         #name::from_av_map_slice(b).unwrap()
+        //     }};
+        // }
+
+        // #[macro_export]
+        // macro_rules! #macro_create {
+        //     ($d: ident, $e: expr) => {{
+        //         $d
+        //             .create(&$e)
+        //             .unwrap()
+        //             .send()
+        //             .await
+        //             .unwrap()
+        //     }};
+        // }
 
         // // todo: variadic, conditional expansion...
         // #[macro_export]
         // macro_rules! #macro_batch_write {
         // }
 
-        #[macro_export]
-        macro_rules! #macro_query {
-            ($d: ident, $i: ident, $e: expr) => {{
-                let a = $d
-                    .query($i, &$e)
-                    .unwrap()
-                    .build()
-                    .send()
-                    .await
-                    .unwrap();
-                let b = a.items().unwrap();
-                #name::from_av_map_slice(b).unwrap()
-            }};
-        }
-
-        #[macro_export]
-        macro_rules! #macro_delete {
-            ($d: ident, $e: expr) => {{
-                $d
-                    .delete(&$e)
-                    .unwrap()
-                    .send()
-                    .await
-                    .unwrap()
-            }};
-        }
+        // #[macro_export]
+        // macro_rules! #macro_delete {
+        //     ($d: ident, $e: expr) => {{
+        //         $d
+        //             .delete(&$e)
+        //             .unwrap()
+        //             .send()
+        //             .await
+        //             .unwrap()
+        //     }};
+        // }
     };
+
     output.into()
 }
