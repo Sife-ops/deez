@@ -1,4 +1,4 @@
-use crate::{DeezEntity, DeezEntityPartial, DeezResult, Index};
+use crate::{DeezEntity, DeezResult, DynamoType, Index, Schema};
 use aws_sdk_dynamodb::{
     operation::update_item::builders::UpdateItemFluentBuilder, types::AttributeValue,
 };
@@ -6,14 +6,14 @@ use std::collections::HashMap;
 
 impl super::Deez {
     pub fn update(&self, entity: &impl DeezEntity) -> DeezResult<DeezUpdateBuilder> {
-        let i = entity.get_composed_index(&Index::Primary, &entity.to_av_map_with_keys()?)?;
+        let i = entity.get_composed_index(&Index::Primary).unwrap();
         let request = self
             .client
             .update_item()
-            .table_name(entity.meta().table)
+            .table_name(entity.schema().table)
             .set_key(Some(HashMap::from([
-                (i.partition_key.field, i.partition_key.value),
-                (i.sort_key.field, i.sort_key.value),
+                (i.partition_key.0, AttributeValue::S(i.partition_key.1)),
+                (i.sort_key.0, AttributeValue::S(i.sort_key.1)),
             ])));
 
         Ok(DeezUpdateBuilder {
@@ -21,6 +21,7 @@ impl super::Deez {
             exp: String::new(),
             names: HashMap::new(),
             values: HashMap::new(),
+            schema: entity.schema(),
         })
     }
 
@@ -29,28 +30,51 @@ impl super::Deez {
     // todo: remove
 }
 
-#[derive(Debug)]
+// #[derive(Debug)]
 pub struct DeezUpdateBuilder {
     pub builder: UpdateItemFluentBuilder,
     pub exp: String,
     pub names: HashMap<String, String>,
     pub values: HashMap<String, AttributeValue>,
+    pub schema: Schema,
 }
 
 impl DeezUpdateBuilder {
-    pub fn set(mut self, entity: &impl DeezEntityPartial) -> DeezResult<DeezUpdateBuilder> {
+    pub fn set(mut self, m: HashMap<String, String>) -> DeezResult<DeezUpdateBuilder> {
         match self.exp.len() {
             0 => self.exp.push_str("SET"),
             _ => self.exp.push_str(" SET"),
         }
 
-        let m = entity.to_av_map();
         for (i, (a, b)) in m.iter().enumerate() {
             self.names.insert(format!("#{}", a), a.clone());
-            self.values.insert(format!(":{}", a), b.clone());
+
             match i {
                 0 => self.exp.push_str(&format!(" #{} = :{}", a, a)),
                 _ => self.exp.push_str(&format!(", #{} = :{}", a, a)),
+            }
+
+            let c = self.schema.attributes.get(a.as_str()).unwrap();
+            match c.dynamo_type {
+                DynamoType::DynamoString => {
+                    self.values
+                        .insert(format!(":{}", a), AttributeValue::S(b.to_string()));
+                }
+                DynamoType::DynamoNumber => {
+                    self.values
+                        .insert(format!(":{}", a), AttributeValue::N(b.to_string()));
+                }
+                DynamoType::DynamoBool => {
+                    if b == "true" {
+                        self.values
+                            .insert(format!(":{}", a), AttributeValue::Bool(true));
+                    } else if b == "fale" {
+                        self.values
+                            .insert(format!(":{}", a), AttributeValue::Bool(false));
+                    } else {
+                        panic!();
+                    }
+                }
             }
         }
 
@@ -67,9 +91,9 @@ impl DeezUpdateBuilder {
 
 #[cfg(test)]
 mod tests {
-    use aws_sdk_dynamodb::types::AttributeValue;
-
     use crate::mocks::mocks::*;
+    use aws_sdk_dynamodb::types::AttributeValue;
+    use std::collections::HashMap;
 
     #[tokio::test]
     async fn update_builder() {
@@ -82,11 +106,10 @@ mod tests {
                 ..Default::default()
             })
             .unwrap()
-            .set(&FooPartial {
-                foo_string_3: Some("ccc".to_string()),
-                foo_string_4: Some("ddd".to_string()),
-                ..Default::default()
-            })
+            .set(HashMap::from([
+                ("foo_string_3".to_string(), "ccc".to_string()),
+                ("foo_string_4".to_string(), "ddd".to_string()),
+            ]))
             .unwrap();
 
         assert!(

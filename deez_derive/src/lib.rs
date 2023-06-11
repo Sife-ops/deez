@@ -27,7 +27,7 @@ pub fn derive(input: TokenStream) -> TokenStream {
 
     // let mut inserts = quote! {};
     let mut reads = quote! {};
-    // let mut partial_fields = quote! {};
+    let mut partial_fields = quote! {};
     // let mut partial_inserts = quote! {};
 
     for field in fields.iter() {
@@ -38,6 +38,7 @@ pub fn derive(input: TokenStream) -> TokenStream {
             _ => panic!("field.ty not a `TypePath`"),
         };
 
+        // todo: too much unwrap
         match field_type.clone().into_token_stream().to_string().as_ref() {
             "String" => {
                 reads = quote! {
@@ -89,21 +90,26 @@ pub fn derive(input: TokenStream) -> TokenStream {
                 field_type.clone().into_token_stream().to_string()
             ),
         }
+
+        partial_fields = quote! {
+            #partial_fields
+            pub #field_ident: Option<#field_type>,
+        };
     }
 
     let name = &ast.ident;
-    // let macro_query = format_ident!("query_{}", name);
+    let partial_name = format_ident!("{}Partial", name);
 
-    let (ig, tg, wc) = ast.generics.split_for_impl();
+    // let (ig, tg, wc) = ast.generics.split_for_impl();
     let output = quote! {
-        impl #ig DeezEntity for #name #tg #wc {
-            fn from_av_map(m: &HashMap<String, AttributeValue>) -> Result<#name, DeezError> {
-                Ok(#name {
-                    #reads
-                    ..Default::default()
-                })
-            }
-        }
+        // impl #ig DeezEntity for #name #tg #wc {
+        //     fn from_av_map(m: &HashMap<String, AttributeValue>) -> Result<#name, DeezError> {
+        //         Ok(#name {
+        //             #reads
+        //             ..Default::default()
+        //         })
+        //     }
+        // }
 
         impl From<&HashMap<String,AttributeValue>> for #name {
             fn from(m: &HashMap<String,AttributeValue>) -> #name {
@@ -122,50 +128,6 @@ pub fn derive(input: TokenStream) -> TokenStream {
                 }
             }
         }
-
-        // #[macro_export]
-        // macro_rules! #macro_query {
-        //     ($d: ident, $i: ident, $e: expr) => {{
-        //         let a = $d
-        //             .query($i, &$e)
-        //             .unwrap()
-        //             .build()
-        //             .send()
-        //             .await
-        //             .unwrap();
-        //         let b = a.items().unwrap();
-        //         #name::from_av_map_slice(b).unwrap()
-        //     }};
-        // }
-
-        // #[macro_export]
-        // macro_rules! #macro_create {
-        //     ($d: ident, $e: expr) => {{
-        //         $d
-        //             .create(&$e)
-        //             .unwrap()
-        //             .send()
-        //             .await
-        //             .unwrap()
-        //     }};
-        // }
-
-        // // todo: variadic, conditional expansion...
-        // #[macro_export]
-        // macro_rules! #macro_batch_write {
-        // }
-
-        // #[macro_export]
-        // macro_rules! #macro_delete {
-        //     ($d: ident, $e: expr) => {{
-        //         $d
-        //             .delete(&$e)
-        //             .unwrap()
-        //             .send()
-        //             .await
-        //             .unwrap()
-        //     }};
-        // }
     };
 
     output.into()

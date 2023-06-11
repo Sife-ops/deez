@@ -1,6 +1,6 @@
 use crate::{DeezEntity, DeezResult, Index};
 use aws_sdk_dynamodb::operation::batch_write_item::builders::BatchWriteItemFluentBuilder;
-use aws_sdk_dynamodb::types::{DeleteRequest, PutRequest, WriteRequest};
+use aws_sdk_dynamodb::types::{AttributeValue, DeleteRequest, PutRequest, WriteRequest};
 use aws_sdk_dynamodb::Client;
 use std::collections::HashMap;
 
@@ -30,11 +30,11 @@ impl<'a> DeezBatchWriteBuilder<'a> {
                         .build(),
                 )
                 .build();
-            if let Some(y) = self.writes.get_mut(entity.meta().table) {
+            if let Some(y) = self.writes.get_mut(entity.schema().table) {
                 y.push(request);
             } else {
                 self.writes
-                    .insert(entity.meta().table.to_string(), vec![request]);
+                    .insert(entity.schema().table.to_string(), vec![request]);
             }
         }
         Ok(self)
@@ -45,20 +45,20 @@ impl<'a> DeezBatchWriteBuilder<'a> {
         entities: Vec<&T>,
     ) -> DeezResult<DeezBatchWriteBuilder<'a>> {
         for entity in entities.iter() {
-            let a = entity.get_composed_index(&Index::Primary, &entity.to_av_map_with_keys()?)?;
+            let a = entity.get_composed_index(&Index::Primary).unwrap();
             let request = WriteRequest::builder()
                 .delete_request(
                     DeleteRequest::builder()
-                        .key(a.partition_key.field, a.partition_key.value)
-                        .key(a.sort_key.field, a.sort_key.value)
+                        .key(a.partition_key.0, AttributeValue::S(a.partition_key.1))
+                        .key(a.sort_key.0, AttributeValue::S(a.sort_key.1))
                         .build(),
                 )
                 .build();
-            if let Some(y) = self.writes.get_mut(entity.meta().table) {
+            if let Some(y) = self.writes.get_mut(entity.schema().table) {
                 y.push(request);
             } else {
                 self.writes
-                    .insert(entity.meta().table.to_string(), vec![request]);
+                    .insert(entity.schema().table.to_string(), vec![request]);
             }
         }
         Ok(self)
@@ -71,3 +71,5 @@ impl<'a> DeezBatchWriteBuilder<'a> {
             .set_request_items(Some(self.writes.clone())))
     }
 }
+
+// todo: tests

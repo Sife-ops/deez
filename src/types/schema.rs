@@ -1,4 +1,4 @@
-use crate::deez::DeezEntity;
+use crate::{deez::DeezEntity, DeezResult};
 use bevy_reflect::GetField;
 use std::collections::HashMap;
 
@@ -32,23 +32,23 @@ pub struct IndexKeysComposed {
 }
 
 impl IndexKeys {
-    pub fn composed_index(&self, e: &impl DeezEntity) -> IndexKeysComposed {
+    pub fn composed_index(&self, e: &impl DeezEntity) -> DeezResult<IndexKeysComposed> {
         let a = e.schema();
-        IndexKeysComposed {
+        Ok(IndexKeysComposed {
             partition_key: (
                 self.partition_key.field.to_string(),
                 format!(
                     "${}#{}{}",
                     a.service,
                     a.entity,
-                    self.partition_key.composed_key(e)
+                    self.partition_key.composed_key(e).unwrap()
                 ),
             ),
             sort_key: (
                 self.sort_key.field.to_string(),
-                format!("${}{}", a.entity, self.sort_key.composed_key(e)),
+                format!("${}{}", a.entity, self.sort_key.composed_key(e).unwrap()),
             ),
-        }
+        })
     }
 }
 
@@ -59,14 +59,14 @@ pub struct Key {
 }
 
 impl Key {
-    pub fn composed_key(&self, e: &impl DeezEntity) -> String {
+    pub fn composed_key(&self, e: &impl DeezEntity) -> DeezResult<String> {
         let mut a = String::new();
         for b in self.composite.iter() {
             // todo: number types
             let c = e.get_field::<String>(b).unwrap();
             a.push_str(&format!("#{}_{}", b, c));
         }
-        a
+        Ok(a)
     }
 }
 

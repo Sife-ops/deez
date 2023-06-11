@@ -3,7 +3,7 @@ mod mocks;
 mod types;
 
 pub use bevy_reflect::Reflect;
-pub use deez::{Deez, DeezEntity, DeezResult, DeezSchema};
+pub use deez::{Deez, DeezEntity, DeezResult};
 pub use deez_derive::DeezEntity;
 pub use types::error::DeezError;
 pub use types::schema::{Attribute, DynamoType, Index, IndexKeys, Key, Schema};

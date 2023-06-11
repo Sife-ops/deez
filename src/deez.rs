@@ -1,4 +1,4 @@
-use crate::types::schema::{DynamoType, Schema};
+use crate::types::schema::{DynamoType, Index, IndexKeysComposed, Schema};
 use crate::DeezError;
 use aws_sdk_dynamodb::types::AttributeValue;
 use aws_sdk_dynamodb::Client;
@@ -16,41 +16,37 @@ impl Deez {
     }
 }
 
-// mod create;
+mod create;
 
-// mod batch_write;
+mod batch_write;
 
-// mod delete;
+mod delete;
 
-// mod query;
+mod query;
 
-// mod update;
+mod update;
 
 // todo: scan
 // todo: batch get
 // todo: patch
 
-// todo: DeezEntityPartial, to_av_map
-
-pub trait DeezSchema {
+pub trait DeezEntity: bevy_reflect::Struct {
+    // fn from_av_map(m: &HashMap<String, AttributeValue>) -> DeezResult<Self>
+    // where
+    //     Self: Sized;
     fn schema(&self) -> Schema;
-}
 
-pub trait DeezEntity: DeezSchema + bevy_reflect::Struct {
-    // todo: impl from?
-    fn from_av_map(m: &HashMap<String, AttributeValue>) -> DeezResult<Self>
-    where
-        Self: Sized;
-
-    fn to_av_map(&self) -> HashMap<String, AttributeValue> {
+    fn to_av_map(&self) -> DeezResult<HashMap<String, AttributeValue>> {
         let mut av_map: HashMap<String, AttributeValue> = HashMap::new();
 
         let schema = self.schema();
 
         for (i, value) in self.iter_fields().enumerate() {
-            // todo: rename
-            let field_name = self.name_at(i).unwrap();
-            let attribute = schema.attributes.get(field_name).unwrap();
+            let field_name = self.name_at(i).ok_or(DeezError::UnknownStructIndex(i))?;
+            let attribute = schema
+                .attributes
+                .get(field_name)
+                .ok_or(DeezError::UnknownAttribute(field_name.to_string()))?;
 
             // todo: list types
             // todo: optional types
@@ -58,36 +54,51 @@ pub trait DeezEntity: DeezSchema + bevy_reflect::Struct {
                 DynamoType::DynamoString => {
                     av_map.insert(
                         field_name.to_string(),
-                        AttributeValue::S(value.downcast_ref::<String>().unwrap().to_string()),
+                        AttributeValue::S(
+                            value
+                                .downcast_ref::<String>()
+                                .ok_or(DeezError::FailedDowncast(field_name.to_string()))?
+                                .to_string(),
+                        ),
                     );
                 }
                 DynamoType::DynamoBool => {
                     av_map.insert(
                         field_name.to_string(),
-                        AttributeValue::Bool(value.downcast_ref::<bool>().unwrap().clone()),
+                        AttributeValue::Bool(
+                            value
+                                .downcast_ref::<bool>()
+                                .ok_or(DeezError::FailedDowncast(field_name.to_string()))?
+                                .clone(),
+                        ),
                     );
                 }
                 DynamoType::DynamoNumber => {
                     // todo: other num types
                     av_map.insert(
                         field_name.to_string(),
-                        AttributeValue::N(value.downcast_ref::<u8>().unwrap().to_string()),
+                        AttributeValue::N(
+                            value
+                                .downcast_ref::<isize>()
+                                .ok_or(DeezError::FailedDowncast(field_name.to_string()))?
+                                .to_string(),
+                        ),
                     );
                 }
             }
         }
 
-        av_map
+        Ok(av_map)
     }
 
-    fn to_av_map_with_keys(&self) -> HashMap<String, AttributeValue>
+    fn to_av_map_with_keys(&self) -> DeezResult<HashMap<String, AttributeValue>>
     where
         Self: Sized,
     {
-        let mut m = self.to_av_map();
+        let mut m = self.to_av_map()?;
         let s = self.schema();
 
-        let b = s.primary_index.composed_index(self);
+        let b = s.primary_index.composed_index(self)?;
         {
             let (c, d) = b.partition_key;
             m.insert(c, AttributeValue::S(d));
@@ -98,7 +109,7 @@ pub trait DeezEntity: DeezSchema + bevy_reflect::Struct {
         }
 
         for (_, c) in s.global_secondary_indexes {
-            let d = c.composed_index(self);
+            let d = c.composed_index(self)?;
             {
                 let (e, f) = d.partition_key;
                 m.insert(e, AttributeValue::S(f));
@@ -109,7 +120,22 @@ pub trait DeezEntity: DeezSchema + bevy_reflect::Struct {
             }
         }
 
-        m
+        Ok(m)
+    }
+
+    fn get_composed_index(&self, i: &Index) -> DeezResult<IndexKeysComposed>
+    where
+        Self: Sized,
+    {
+        let schema = self.schema();
+        match i {
+            Index::Primary => Ok(schema.primary_index.composed_index(self)?),
+            _ => Ok(schema
+                .global_secondary_indexes
+                .get(i)
+                .ok_or(DeezError::UnknownIndex(i.to_string()))?
+                .composed_index(self)?),
+        }
     }
 }
 
@@ -129,7 +155,7 @@ mod tests {
             foo_bool: true,
         };
 
-        let b = a.to_av_map_with_keys();
+        let b = a.to_av_map_with_keys().unwrap();
 
         assert_eq!(
             b["pk"],
@@ -146,7 +172,7 @@ mod tests {
         );
 
         // let c= Foo::from_av_map(&b).unwrap();
-        let c= Foo::from(&b);
+        let c = Foo::from(&b);
 
         // println!("{:#?}", c);
 

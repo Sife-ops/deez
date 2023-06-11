@@ -15,7 +15,13 @@ pub enum DeezError {
     #[error("unknown key: {0}")]
     UnknownIndex(String),
     #[error("empty entity vector")]
-    EmptyEntityVec
+    EmptyEntityVec,
+    #[error("unknown struct index: {0}")]
+    UnknownStructIndex(usize),
+    #[error("unknown attribute: {0}")]
+    UnknownAttribute(String),
+    #[error("failed downcast for struct field: {0}")]
+    FailedDowncast(String),
 }
 
 // todo: cringed

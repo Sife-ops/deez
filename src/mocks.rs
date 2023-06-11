@@ -5,7 +5,7 @@ pub mod mocks {
     use std::collections::HashMap;
 
     use crate::{
-        Attribute, Deez, DeezEntity, DeezError, DeezSchema, DynamoType, Index, IndexKeys, Key,
+        Attribute, Deez, DeezEntity, DynamoType, Index, IndexKeys, Key,
         Reflect, Schema,
     };
 
@@ -29,13 +29,13 @@ pub mod mocks {
         pub foo_string_2: String,
         pub foo_string_3: String,
         pub foo_string_4: String,
-        pub foo_usize: u8,
+        pub foo_usize: isize,
         pub foo_bool: bool,
     }
 
     pub const GSI1: Index = Index::Gsi1("gsi1");
 
-    impl DeezSchema for Foo {
+    impl DeezEntity for Foo {
         fn schema(&self) -> Schema {
             Schema {
                 table: "footable",
