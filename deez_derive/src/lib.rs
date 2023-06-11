@@ -1,281 +1,365 @@
+mod macro_rules;
+
+use attribute_derive::Attribute;
+use macro_rules::{compose_key, deez_attrs, insert_gsi, insert_index, read_attr};
 use proc_macro::{self, TokenStream};
 use quote::{format_ident, quote, ToTokens};
-use syn::{parse_macro_input, DeriveInput, Expr, Lit};
+use std::{collections::HashMap, fmt::Debug};
+use syn::{DeriveInput, Field};
 
-// code references:
-// https://github.com/ex0dus-0x/structmap/blob/main/structmap-derive/src/lib.rs
-// https://github.com/imbolc/rust-derive-macro-guide
+deez_attrs!();
 
-// todo: implementation of other dynamodb types
-// https://github.com/awslabs/aws-sdk-rust/blob/main/sdk/dynamodb/src/types/_attribute_value.rs
-// B(::aws_smithy_types::Blob),
-// Bs(::std::vec::Vec<::aws_smithy_types::Blob>),
-// L(::std::vec::Vec<crate::types::AttributeValue>),
-// M(::std::collections::HashMap<::std::string::String, crate::types::AttributeValue>),
-// Ns(::std::vec::Vec<::std::string::String>),
-// Null(bool),
-// Ss(::std::vec::Vec<::std::string::String>),
-
-fn trim(c: &str) -> &str {
-    let mut d = c.chars();
-    d.next();
-    d.next_back();
-    d.as_str()
+struct IndexKeys {
+    hash: IndexKey,
+    range: IndexKey,
 }
 
-#[proc_macro_derive(DeezEntity, attributes(deez))]
-pub fn derive(input: TokenStream) -> TokenStream {
-    let ast = parse_macro_input!(input as DeriveInput);
+#[derive(Default)]
+struct IndexKey {
+    field: String,
+    composite: Vec<Composite>,
+}
 
-    let fields = match ast.data {
-        syn::Data::Struct(st) => st.fields,
-        _ => panic!("ast.data not a `Struct`"),
+struct Composite {
+    position: usize,
+    syn_field: Field,
+}
+
+#[proc_macro_derive(
+    Deez,
+    attributes(
+        deez_schema,
+        deez_ignore,
+        deez_primary,
+        deez_gsi1,
+        deez_gsi2,
+        deez_gsi3,
+        deez_gsi4,
+        deez_gsi5,
+        deez_gsi6,
+        deez_gsi7,
+        deez_gsi8,
+        deez_gsi9,
+        deez_gsi10,
+        deez_gsi11,
+        deez_gsi12,
+        deez_gsi13,
+        deez_gsi14,
+        deez_gsi15,
+        deez_gsi16,
+        deez_gsi17,
+        deez_gsi18,
+        deez_gsi19,
+        deez_gsi20,
+    )
+)]
+pub fn derive(input: TokenStream) -> TokenStream {
+    let DeriveInput { attrs, data, ident, .. } = syn::parse(input).unwrap();
+
+    let s = DeezSchema::from_attributes(&attrs).unwrap();
+    let mut index_name_match = quote! {};
+    let mut m = HashMap::new();
+    insert_index!(m, "Primary", s.primary_hash, s.primary_range);
+    insert_gsi!(m, "Gsi1", s.gsi1_name, s.gsi1_hash, s.gsi1_range, index_name_match);
+    insert_gsi!(m, "Gsi2", s.gsi2_name, s.gsi2_hash, s.gsi2_range, index_name_match);
+    insert_gsi!(m, "Gsi3", s.gsi3_name, s.gsi3_hash, s.gsi3_range, index_name_match);
+    insert_gsi!(m, "Gsi4", s.gsi4_name, s.gsi4_hash, s.gsi4_range, index_name_match);
+    insert_gsi!(m, "Gsi5", s.gsi5_name, s.gsi5_hash, s.gsi5_range, index_name_match);
+    insert_gsi!(m, "Gsi6", s.gsi6_name, s.gsi6_hash, s.gsi6_range, index_name_match);
+    insert_gsi!(m, "Gsi7", s.gsi7_name, s.gsi7_hash, s.gsi7_range, index_name_match);
+    insert_gsi!(m, "Gsi8", s.gsi8_name, s.gsi8_hash, s.gsi8_range, index_name_match);
+    insert_gsi!(m, "Gsi9", s.gsi9_name, s.gsi9_hash, s.gsi9_range, index_name_match);
+    insert_gsi!(m, "Gsi10", s.gsi10_name, s.gsi10_hash, s.gsi10_range, index_name_match);
+    insert_gsi!(m, "Gsi11", s.gsi11_name, s.gsi11_hash, s.gsi11_range, index_name_match);
+    insert_gsi!(m, "Gsi12", s.gsi12_name, s.gsi12_hash, s.gsi12_range, index_name_match);
+    insert_gsi!(m, "Gsi13", s.gsi13_name, s.gsi13_hash, s.gsi13_range, index_name_match);
+    insert_gsi!(m, "Gsi14", s.gsi14_name, s.gsi14_hash, s.gsi14_range, index_name_match);
+    insert_gsi!(m, "Gsi15", s.gsi15_name, s.gsi15_hash, s.gsi15_range, index_name_match);
+    insert_gsi!(m, "Gsi16", s.gsi16_name, s.gsi16_hash, s.gsi16_range, index_name_match);
+    insert_gsi!(m, "Gsi17", s.gsi17_name, s.gsi17_hash, s.gsi17_range, index_name_match);
+    insert_gsi!(m, "Gsi18", s.gsi18_name, s.gsi18_hash, s.gsi18_range, index_name_match);
+    insert_gsi!(m, "Gsi19", s.gsi19_name, s.gsi19_hash, s.gsi19_range, index_name_match);
+    insert_gsi!(m, "Gsi20", s.gsi20_name, s.gsi20_hash, s.gsi20_range, index_name_match);
+
+    let struct_data = match data {
+        syn::Data::Struct(s) => s,
+        _ => panic!("could not parse struct"),
     };
 
-    let mut inserts = quote! {};
-    let mut reads = quote! {};
-    let mut partial_fields = quote! {};
-    let mut partial_inserts = quote! {};
+    let mut field_inserts = quote! {};
+    let mut field_reads = quote! {};
 
-    for field in fields.iter() {
-        let field_ident = field.ident.as_ref().unwrap();
-
-        let mut field_name = field_ident.to_string();
-        let mut field_skip = false;
-
-        // todo: sus af, not enough experience with syn
-        // todo: parse floats when reading from the table
-        for attr in field.attrs.iter() {
-            if let Ok(ex) = attr.parse_args::<Expr>() {
-                match ex {
-                    Expr::Assign(ea) => {
-                        if let Expr::Path(ep) = *ea.left {
-                            match ep.path.segments.first().unwrap().ident.to_string().as_str() {
-                                "rename" => {
-                                    if let Expr::Lit(el) = *ea.right {
-                                        if let Lit::Str(ls) = el.lit {
-                                            let rename = ls.token().to_string();
-                                            field_name = trim(&rename).to_string();
-                                        }
-                                    }
-                                }
-                                &_ => {
-                                    // todo: do nothing or panic?
-                                }
-                            }
-                        }
-                    }
-                    Expr::Path(ep) => {
-                        match ep.path.segments.first().unwrap().ident.to_string().as_str() {
-                            "skip" => {
-                                field_skip = true;
-                            }
-                            &_ => {
-                                // todo: do nothing or panic?
-                            }
-                        }
-                    }
-                    _ => {
-                        // todo: do nothing or panic?
-                    }
+    for field in struct_data.fields.iter() {
+        if field.attrs.len() > 0 {
+            if let Ok(attribute) = DeezIgnore::from_attributes(&field.attrs) {
+                if attribute.ignore {
+                    continue;
                 }
             }
+
+            read_attr!(m, field, DeezPrimary, "Primary");
+            read_attr!(m, field, DeezGsi1, "Gsi1");
+            read_attr!(m, field, DeezGsi2, "Gsi2");
+            read_attr!(m, field, DeezGsi3, "Gsi3");
+            read_attr!(m, field, DeezGsi4, "Gsi4");
+            read_attr!(m, field, DeezGsi5, "Gsi5");
+            read_attr!(m, field, DeezGsi6, "Gsi6");
+            read_attr!(m, field, DeezGsi7, "Gsi7");
+            read_attr!(m, field, DeezGsi8, "Gsi8");
+            read_attr!(m, field, DeezGsi9, "Gsi9");
+            read_attr!(m, field, DeezGsi10, "Gsi10");
+            read_attr!(m, field, DeezGsi11, "Gsi11");
+            read_attr!(m, field, DeezGsi12, "Gsi12");
+            read_attr!(m, field, DeezGsi13, "Gsi13");
+            read_attr!(m, field, DeezGsi14, "Gsi14");
+            read_attr!(m, field, DeezGsi15, "Gsi15");
+            read_attr!(m, field, DeezGsi16, "Gsi16");
+            read_attr!(m, field, DeezGsi17, "Gsi17");
+            read_attr!(m, field, DeezGsi18, "Gsi18");
+            read_attr!(m, field, DeezGsi19, "Gsi19");
+            read_attr!(m, field, DeezGsi20, "Gsi20");
         }
 
-        if field_skip {
-            continue;
-        }
-
-        let field_type = match &field.ty {
-            syn::Type::Path(b) => b.clone(),
-            _ => panic!("field.ty not a `TypePath`"),
+        let type_name = match &field.ty {
+            syn::Type::Path(p) => p.to_token_stream().to_string(),
+            _ => panic!("could not parse field type as path"),
         };
 
-        match field_type.clone().into_token_stream().to_string().as_ref() {
+        let field_ident = field.ident.as_ref().unwrap();
+        let field_name = field_ident.to_string();
+
+        match type_name.as_str() {
             "String" => {
-                inserts = quote! {
-                    #inserts
-                    av_map.insert(#field_name.to_string(), AttributeValue::S(self.#field_ident.to_string()));
+                field_inserts = quote! {
+                    #field_inserts
+                    m.insert(#field_name.to_string(), AttributeValue::S(item.#field_ident.clone()));
                 };
-                reads = quote! {
-                    #reads
-                    #field_ident: av_map
+                field_reads = quote! {
+                    #field_reads
+                    #field_ident: item
                         .get(#field_name)
-                        .ok_or(DeezError::MapKey(#field_name.to_string()))?
-                        .as_s()?
+                        .unwrap() // todo: sus
+                        .as_s()
+                        .unwrap()
                         .clone(),
                 };
-                partial_inserts = quote! {
-                    #partial_inserts
-                    if let Some(f) = &self.#field_ident {
-                        av_map.insert(#field_name.to_string(), AttributeValue::S(f.clone()));
-                    }
+            }
+            "f64" => {
+                field_inserts = quote! {
+                    #field_inserts
+                    m.insert(#field_name.to_string(), AttributeValue::N(item.#field_ident.to_string()));
+                };
+                field_reads = quote! {
+                    #field_reads
+                    #field_ident: item
+                        .get(#field_name)
+                        .unwrap()
+                        .as_n()
+                        .unwrap()
+                        .clone()
+                        .parse::<f64>()
+                        .unwrap(),
                 };
             }
             "bool" => {
-                inserts = quote! {
-                    #inserts
-                    av_map.insert(#field_name.to_string(), AttributeValue::Bool(self.#field_ident));
+                field_inserts = quote! {
+                    #field_inserts
+                    m.insert(#field_name.to_string(), AttributeValue::Bool(item.#field_ident));
                 };
-                reads = quote! {
-                    #reads
-                    #field_ident: av_map
+                field_reads = quote! {
+                    #field_reads
+                    #field_ident: item
                         .get(#field_name)
-                        .ok_or(DeezError::MapKey(#field_name.to_string()))?
-                        .as_bool()?
+                        .unwrap()
+                        .as_bool()
+                        .unwrap()
                         .clone(),
                 };
-                partial_inserts = quote! {
-                    #partial_inserts
-                    if let Some(f) = &self.#field_ident {
-                        av_map.insert(#field_name.to_string(), AttributeValue::Bool(f.clone()));
-                    }
-                };
             }
-            // DynamoDB attribute of type Number can store 126-bit integers (or
-            // 127-bit unsigned integers, with serious caveats).
-            // https://docs.aws.amazon.com/amazondynamodb/latest/developerguide/HowItWorks.NamingRulesDataTypes.html#HowItWorks.DataTypes.Number
-            "usize" | "isize" | "u8" | "i8" | "u16" | "i16" | "u32" | "i32" | "u64" | "i64" => {
-                inserts = quote! {
-                    #inserts
-                    av_map.insert(#field_name.to_string(), AttributeValue::N(self.#field_ident.to_string()));
-                };
-                reads = quote! {
-                    #reads
-                    #field_ident: av_map
-                        .get(#field_name)
-                        .ok_or(DeezError::MapKey(#field_name.to_string()))?
-                        .as_n()?
-                        .clone()
-                        .parse::<#field_type>()?,
-                };
-                partial_inserts = quote! {
-                    #partial_inserts
-                    if let Some(f) = &self.#field_ident {
-                        av_map.insert(#field_name.to_string(), AttributeValue::N(f.to_string()));
-                    }
-                };
-            }
-            &_ => panic!(
-                "unsupported type: {}",
-                field_type.clone().into_token_stream().to_string()
-            ),
+            _ => panic!("unsupported type: {}", type_name),
         }
+    }
 
-        partial_fields = quote! {
-            #partial_fields
-            pub #field_ident: Option<#field_type>,
+    let mut index_key_match = quote! {};
+    let mut index_keys_match = quote! {};
+    let mut index_inserts = quote! {};
+
+    for (k, v) in m.iter() {
+        let hash_composite = compose_key!(v.hash);
+        let range_composite = compose_key!(v.range);
+
+        let service = s.service.clone();
+        let entity = s.entity.clone();
+        let hash_field = v.hash.field.clone();
+        let range_field = v.range.field.clone();
+        let index_enum_variant = format_ident!("{}", k);
+        // let index_enum_variant_inner = index_enum_variant!(k, &v.index_name);
+
+        index_key_match = quote! {
+            #index_key_match
+            Index::#index_enum_variant => {
+                let mut composed = String::new();
+                match key {
+                    Key::Hash => {
+                        composed.push_str(&format!("${}#{}", #service, #entity));
+                        #hash_composite
+                        return IndexKey {
+                            field: #hash_field.to_string(),
+                            composite: composed,
+                        }
+                    }
+                    Key::Range => {
+                        composed.push_str(&format!("${}", #entity));
+                        #range_composite
+                        return IndexKey {
+                            field: #range_field.to_string(),
+                            composite: composed,
+                        }
+                    }
+                }
+            }
+        };
+
+        index_keys_match = quote! {
+            #index_keys_match
+            Index::#index_enum_variant => {
+                return IndexKeys {
+                    hash: self.index_key(Index::#index_enum_variant, Key::Hash),
+                    range: self.index_key(Index::#index_enum_variant, Key::Range),
+                }
+            }
+        };
+
+        index_inserts = quote! {
+            #index_inserts
+            {
+                let keys = item.index_keys(Index::#index_enum_variant);
+                m.insert(keys.hash.field, AttributeValue::S(keys.hash.composite));
+                m.insert(keys.range.field, AttributeValue::S(keys.range.composite));
+            }
         };
     }
 
-    let name = &ast.ident;
+    let table = s.table;
+    let response_items = format_ident!("{}Items", ident);
 
-    let struct_partial = format_ident!("{}Partial", name);
+    let out = quote! {
+        // use deez::{Index, Key, IndexKey, IndexKeys};
+        // use aws_sdk_dynamodb::types::AttributeValue;
+        // use std::collections::HashMap;
 
-    let macro_create = format_ident!("create_{}", name);
-    // let macro_batch_write = format_ident!("batch_write_{}", name);
-    let macro_query = format_ident!("query_{}", name);
-    let macro_delete = format_ident!("delete_{}", name);
-
-    let (ig, tg, wc) = ast.generics.split_for_impl();
-
-    let output = quote! {
-        impl #ig DeezEntity for #name #tg #wc {
-            fn to_av_map(&self) -> HashMap<String, AttributeValue> {
-                let mut av_map = HashMap::new();
-                #inserts
-                av_map
+        impl #ident {
+            pub fn table_name() -> String {
+                #table.to_string()
             }
 
-            fn to_av_map_with_keys(&self) -> Result<HashMap<String, AttributeValue>, DeezError> {
-                let mut av_map = self.to_av_map();
-                let indexes = self.indexes();
-                for (_, index) in indexes.iter() {
-                    av_map.insert(
-                        index.partition_key.field.to_string(),
-                        AttributeValue::S(format!(
-                            "${}#{}{}",
-                            self.meta().service,
-                            self.meta().entity,
-                            index.partition_key.join_composite(&av_map)?,
-                        ))
-                    );
-                    av_map.insert(
-                        index.sort_key.field.to_string(),
-                        AttributeValue::S(format!(
-                            "${}{}",
-                            self.meta().entity,
-                            index.sort_key.join_composite(&av_map)?,
-                        ))
-                    );
+            pub fn index_name(index: Index) -> String {
+                match index {
+                    #index_name_match
+                    _ => panic!("unknown entity index: {}", index), // todo: custom error
                 }
-                Ok(av_map)
             }
 
-            fn from_av_map(av_map: &HashMap<String, AttributeValue>) -> Result<#name, DeezError> {
-                Ok(#name {
-                    #reads
+            pub fn index_key(&self, index: Index, key: Key) -> IndexKey<String> {
+                match index {
+                    #index_key_match
+                    _ => panic!("unknown entity index: {}", index),
+                }
+            }
+
+            pub fn index_key_av(&self, index: Index, key: Key) -> IndexKey<AttributeValue> {
+                let k = self.index_key(index, key);
+                IndexKey {
+                    field: k.field,
+                    composite: AttributeValue::S(k.composite),
+                }
+            }
+
+            pub fn index_keys(&self, index: Index) -> IndexKeys<String> {
+                match index {
+                    #index_keys_match
+                    _ => panic!("unknown entity index: {}", index),
+                }
+            }
+
+            pub fn index_keys_av(&self, index: Index) -> IndexKeys<AttributeValue> {
+                let k = self.index_keys(index);
+                IndexKeys {
+                    hash: IndexKey {
+                        field: k.hash.field,
+                        composite: AttributeValue::S(k.hash.composite),
+                    },
+                    range: IndexKey {
+                        field: k.range.field,
+                        composite: AttributeValue::S(k.range.composite),
+                    }
+                }
+            }
+        }
+
+        impl From<#ident> for HashMap<String, AttributeValue> {
+            fn from(item: #ident) -> HashMap<String, AttributeValue> {
+                let mut m: HashMap<String, AttributeValue> = HashMap::new();
+                #field_inserts
+                #index_inserts
+                m
+            }
+        }
+
+        impl From<&HashMap<String, AttributeValue>> for #ident {
+            fn from(item: &HashMap<String, AttributeValue>) -> #ident {
+                #ident {
+                    #field_reads
                     ..Default::default()
-                })
+                }
             }
         }
 
-        #[derive(Default, Debug)]
-        pub struct #struct_partial {
-            #partial_fields
-        }
+        #[derive(Debug)]
+        pub struct #response_items(pub Vec<#ident>);
 
-        impl DeezEntityPartial for #struct_partial {
-            fn to_av_map(&self) -> HashMap<String, AttributeValue> {
-                let mut av_map: HashMap<String, AttributeValue> = HashMap::new();
-                #partial_inserts
-                av_map
+        impl From<&[HashMap<String, AttributeValue>]> for #response_items {
+            fn from(item: &[HashMap<String, AttributeValue>]) -> #response_items {
+                let mut items: Vec<#ident> = Vec::new();
+                for i in item {
+                    items.push(i.into());
+                }
+                #response_items(items)
             }
         }
 
-        #[macro_export]
-        macro_rules! #macro_create {
-            ($d: ident, $e: expr) => {{
-                $d
-                    .create(&$e)
-                    .unwrap()
-                    .send()
-                    .await
-                    .unwrap()
-            }};
+        impl #response_items {
+            pub fn items(self) -> Vec<#ident> {
+                self.0
+            }
         }
 
-        // // todo: variadic, conditional expansion...
-        // #[macro_export]
-        // macro_rules! #macro_batch_write {
+        // // todo: delete?
+        // impl From<HashMap<String, AttributeValue>> for #ident {
+        //     fn from(item: HashMap<String, AttributeValue>) -> #ident {
+        //         #ident {
+        //             #field_reads
+        //             ..Default::default()
+        //         }
+        //     }
         // }
 
-        #[macro_export]
-        macro_rules! #macro_query {
-            ($d: ident, $i: ident, $e: expr) => {{
-                let a = $d
-                    .query($i, &$e)
-                    .unwrap()
-                    .build()
-                    .send()
-                    .await
-                    .unwrap();
-                let b = a.items().unwrap();
-                #name::from_av_map_slice(b).unwrap()
-            }};
-        }
+        // todo: makes no sense why this doesn't work
+        // #[derive(Debug)]
+        // pub struct #response_items {
+        //     pub items: Vec<#ident>,
+        // };
 
-        #[macro_export]
-        macro_rules! #macro_delete {
-            ($d: ident, $e: expr) => {{
-                $d
-                    .delete(&$e)
-                    .unwrap()
-                    .send()
-                    .await
-                    .unwrap()
-            }};
-        }
+        // impl From<&[HashMap<String, AttributeValue>]> for #response_items {
+        //     fn from(item: &[HashMap<String, AttributeValue>]) -> #response_items {
+        //         let mut items: Vec<#ident> = Vec::new();
+        //         for i in item {
+        //             items.push(i.into());
+        //         }
+        //         #response_items{items}
+        //     }
+        // }
     };
-    output.into()
+
+    out.into()
 }

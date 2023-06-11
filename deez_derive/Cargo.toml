@@ -1,6 +1,6 @@
 [package]
 name = "deez_derive"
-version = "0.1.1"
+version = "0.2.0"
 edition = "2021"
 authors = ["Wyatt Goettsch <wyatt.goettsch@gmail.com>"]
 description = "derive macros for deez"
@@ -11,9 +11,10 @@ keywords = ["dynamodb"]
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-proc-macro2 = "1.0.59"
+attribute-derive = "0.6.1"
+proc-macro2 = "1.0.60"
 quote = "1.0.28"
-syn = { version = "2.0.18", features = ["full"] }
+syn = "2.0.18"
 
 [lib]
 proc-macro = true

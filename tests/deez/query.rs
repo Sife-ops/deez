@@ -14,7 +14,7 @@ async fn query() {
             &Foo {
                 foo_string_1: "foo".to_string(),
                 foo_string_2: "deez".to_string(),
-                foo_string_3: "sugon".to_string(),
+                foo_string_3: "composed_index".to_string(),
                 foo_string_4: Utc
                     .with_ymd_and_hms(2015, 1, 2, 3, 4, 5)
                     .unwrap()
@@ -24,7 +24,7 @@ async fn query() {
             &Foo {
                 foo_string_1: "bar".to_string(),
                 foo_string_2: "deez".to_string(),
-                foo_string_3: "sugon".to_string(),
+                foo_string_3: "composed_index".to_string(),
                 foo_string_4: Utc
                     .with_ymd_and_hms(2015, 1, 3, 3, 4, 5)
                     .unwrap()
@@ -34,7 +34,7 @@ async fn query() {
             &Foo {
                 foo_string_1: "baz".to_string(),
                 foo_string_2: "deez".to_string(),
-                foo_string_3: "sugon".to_string(),
+                foo_string_3: "composed_index".to_string(),
                 foo_string_4: Utc
                     .with_ymd_and_hms(2015, 1, 4, 3, 4, 5)
                     .unwrap()
@@ -44,7 +44,7 @@ async fn query() {
             &Foo {
                 foo_string_1: "for".to_string(),
                 foo_string_2: "deez".to_string(),
-                foo_string_3: "sugon".to_string(),
+                foo_string_3: "composed_index".to_string(),
                 foo_string_4: Utc
                     .with_ymd_and_hms(2015, 1, 5, 3, 4, 5)
                     .unwrap()
@@ -54,7 +54,7 @@ async fn query() {
             &Foo {
                 foo_string_1: "far".to_string(),
                 foo_string_2: "deez".to_string(),
-                foo_string_3: "sugon".to_string(),
+                foo_string_3: "composed_index".to_string(),
                 foo_string_4: Utc
                     .with_ymd_and_hms(2015, 1, 6, 3, 4, 5)
                     .unwrap()
@@ -103,7 +103,7 @@ async fn query() {
             )
             .unwrap()
             .gte(&Foo {
-                foo_string_3: "sugon".to_string(),
+                foo_string_3: "composed_index".to_string(),
                 foo_string_4: Utc
                     .with_ymd_and_hms(2015, 1, 4, 3, 4, 5)
                     .unwrap()
@@ -134,7 +134,7 @@ async fn query() {
             )
             .unwrap()
             .lt(&Foo {
-                foo_string_3: "sugon".to_string(),
+                foo_string_3: "composed_index".to_string(),
                 foo_string_4: Utc
                     .with_ymd_and_hms(2015, 1, 4, 3, 4, 5)
                     .unwrap()
@@ -166,7 +166,7 @@ async fn query() {
             .unwrap()
             .between(
                 &Foo {
-                    foo_string_3: "sugon".to_string(),
+                    foo_string_3: "composed_index".to_string(),
                     foo_string_4: Utc
                         .with_ymd_and_hms(2015, 1, 3, 3, 4, 5)
                         .unwrap()
@@ -174,7 +174,7 @@ async fn query() {
                     ..Default::default()
                 },
                 &Foo {
-                    foo_string_3: "sugon".to_string(),
+                    foo_string_3: "composed_index".to_string(),
                     foo_string_4: Utc
                         .with_ymd_and_hms(2015, 1, 5, 3, 4, 5)
                         .unwrap()
@@ -201,14 +201,14 @@ async fn query() {
             &Foo {
                 foo_string_1: "foo".to_string(),
                 foo_string_2: "deez".to_string(),
-                foo_string_3: "sugon".to_string(),
+                foo_string_3: "composed_index".to_string(),
                 foo_string_4: "foobar".to_string(),
                 ..Default::default()
             },
             &Foo {
                 foo_string_1: "bar".to_string(),
                 foo_string_2: "deez".to_string(),
-                foo_string_3: "sugon".to_string(),
+                foo_string_3: "composed_index".to_string(),
                 foo_string_4: "foobaz".to_string(),
                 ..Default::default()
             },
@@ -232,7 +232,7 @@ async fn query() {
             )
             .unwrap()
             .begins(&Foo {
-                foo_string_3: "sugon".to_string(),
+                foo_string_3: "composed_index".to_string(),
                 foo_string_4: "foo".to_string(),
                 ..Default::default()
             })

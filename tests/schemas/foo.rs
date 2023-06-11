@@ -1,23 +1,22 @@
-use aws_sdk_dynamodb::types::{
-    AttributeDefinition, AttributeValue, BillingMode, GlobalSecondaryIndex, KeySchemaElement,
-    KeyType, Projection, ProjectionType, ScalarAttributeType,
-};
-use std::collections::HashMap;
-
-use deez::{DeezEntity, DeezEntityPartial, DeezError, DeezMeta, Index, IndexKeys, Key, Meta};
-
 use super::make_client;
-
-pub const TABLE_NAME: &str = "footable";
-pub const PRIMARY: Index = Index::Primary;
-pub const GSI1: Index = Index::Gsi1("gsi1");
+use aws_sdk_dynamodb::types::AttributeValue;
+use aws_sdk_dynamodb::types::{
+    AttributeDefinition, BillingMode, GlobalSecondaryIndex, KeySchemaElement, KeyType, Projection,
+    ProjectionType, ScalarAttributeType,
+};
+use deez::*;
+use std::collections::HashMap;
 
 pub async fn init() {
     let client = make_client().await;
-    if let Ok(_) = client.delete_table().table_name(TABLE_NAME).send().await {}
+
+    let table_name = "foo_table";
+
+    if let Ok(_) = client.delete_table().table_name(table_name).send().await {}
+
     client
         .create_table()
-        .table_name(TABLE_NAME)
+        .table_name(table_name)
         .key_schema(
             KeySchemaElement::builder()
                 .key_type(KeyType::Hash)
@@ -82,60 +81,40 @@ pub async fn init() {
         .unwrap();
 }
 
-#[derive(DeezEntity, Debug, Default)]
+#[derive(Debug, Deez, Clone)]
+#[deez_schema(table = "foo_table", service = "foo_service", entity = "foo_entity")]
+#[deez_schema(primary_hash = "pk", primary_range = "sk")]
+#[deez_schema(gsi1_name = "gsi1", gsi1_hash = "gsi1pk", gsi1_range = "gsi1sk")]
+#[deez_schema(gsi2_name = "gsi2", gsi2_hash = "gsi2pk", gsi2_range = "gsi2sk")]
 pub struct Foo {
+    #[deez_primary(key = "hash")]
     pub foo_string_1: String,
+    #[deez_primary(key = "range")]
     pub foo_string_2: String,
+    #[deez_primary(key = "range", position = 1)]
     pub foo_string_3: String,
+    #[deez_gsi1(key = "hash")]
     pub foo_string_4: String,
-    pub foo_usize: u8,
-    pub foo_bool: bool,
+    #[deez_gsi2(key = "hash")]
+    pub foo_string_5: String,
+    #[deez_ignore(ignore)]
+    pub foo_string_6: String,
+    #[deez_gsi1(key = "range")]
+    pub foo_num1: f64,
+    pub foo_bool1: bool,
 }
 
-impl DeezMeta for Foo {
-    fn meta(&self) -> Meta {
-        Meta {
-            table: TABLE_NAME,
-            service: "fooservice",
-            entity: "fooentity",
-        }
-    }
-
-    fn indexes(&self) -> HashMap<Index, IndexKeys> {
-        let mut m = HashMap::new();
-        m.insert(
-            PRIMARY,
-            IndexKeys {
-                partition_key: Key {
-                    field: "pk",
-                    composite: vec!["foo_string_1"],
-                },
-                sort_key: Key {
-                    field: "sk",
-                    composite: vec![],
-                },
-            },
-        );
-        m.insert(
-            GSI1,
-            IndexKeys {
-                partition_key: Key {
-                    field: "gsi1pk",
-                    composite: vec!["foo_string_2"],
-                },
-                sort_key: Key {
-                    field: "gsi1sk",
-                    composite: vec!["foo_string_3", "foo_string_4"],
-                },
-            },
-        );
-        m
-    }
-
-    fn generated() -> Self {
+impl Default for Foo {
+    fn default() -> Self {
         Foo {
-            foo_usize: 33,
-            ..Default::default()
+            foo_string_1: "".to_string(),
+            foo_string_2: "".to_string(),
+            foo_string_3: "".to_string(),
+            foo_string_4: "".to_string(),
+            foo_string_5: "".to_string(),
+            foo_string_6: "".to_string(),
+            foo_num1: 69.0,
+            foo_bool1: true,
         }
     }
 }
