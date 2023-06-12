@@ -5,8 +5,8 @@ pub mod mocks {
     use std::collections::HashMap;
 
     use crate::{
-        Attribute, Deez, DeezEntity, DynamoType, Index, IndexKeys, Key,
-        Reflect, Schema,
+        deez::DeezSchema, Deez, DeezEntity, DeezError, DynamoType, Index, IndexKeys, Key, Reflect,
+        RustType, Schema,
     };
 
     pub async fn make_mock_client() -> Client {
@@ -35,7 +35,7 @@ pub mod mocks {
 
     pub const GSI1: Index = Index::Gsi1("gsi1");
 
-    impl DeezEntity for Foo {
+    impl DeezSchema for Foo {
         fn schema(&self) -> Schema {
             Schema {
                 table: "footable",
@@ -65,42 +65,12 @@ pub mod mocks {
                     },
                 )]),
                 attributes: HashMap::from([
-                    (
-                        "foo_string_1",
-                        Attribute {
-                            dynamo_type: DynamoType::DynamoString,
-                        },
-                    ),
-                    (
-                        "foo_string_2",
-                        Attribute {
-                            dynamo_type: DynamoType::DynamoString,
-                        },
-                    ),
-                    (
-                        "foo_string_3",
-                        Attribute {
-                            dynamo_type: DynamoType::DynamoString,
-                        },
-                    ),
-                    (
-                        "foo_string_4",
-                        Attribute {
-                            dynamo_type: DynamoType::DynamoString,
-                        },
-                    ),
-                    (
-                        "foo_usize",
-                        Attribute {
-                            dynamo_type: DynamoType::DynamoNumber,
-                        },
-                    ),
-                    (
-                        "foo_bool",
-                        Attribute {
-                            dynamo_type: DynamoType::DynamoBool,
-                        },
-                    ),
+                    ("foo_string_1", DynamoType::DynamoString),
+                    ("foo_string_2", DynamoType::DynamoString),
+                    ("foo_string_3", DynamoType::DynamoString),
+                    ("foo_string_4", DynamoType::DynamoString),
+                    ("foo_usize", DynamoType::DynamoNumber(RustType::Isize)),
+                    ("foo_bool", DynamoType::DynamoBool),
                 ]),
             }
         }

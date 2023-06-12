@@ -1,11 +1,25 @@
-use crate::{deez::DeezEntity, DeezResult};
+use crate::{deez::DeezEntity, DeezError, DeezResult};
 use bevy_reflect::GetField;
 use std::collections::HashMap;
 
 #[derive(Debug)]
+pub enum RustType {
+    Usize,
+    Isize,
+    U8,
+    I8,
+    U16,
+    I16,
+    U32,
+    I32,
+    U64,
+    I64,
+}
+
+#[derive(Debug)]
 pub enum DynamoType {
     DynamoString,
-    DynamoNumber,
+    DynamoNumber(RustType),
     DynamoBool,
 }
 
@@ -16,7 +30,7 @@ pub struct Schema {
     pub entity: &'static str,
     pub primary_index: IndexKeys,
     pub global_secondary_indexes: HashMap<Index, IndexKeys>,
-    pub attributes: HashMap<&'static str, Attribute>,
+    pub attributes: HashMap<&'static str, DynamoType>,
 }
 
 #[derive(Debug)]
@@ -41,12 +55,12 @@ impl IndexKeys {
                     "${}#{}{}",
                     a.service,
                     a.entity,
-                    self.partition_key.composed_key(e).unwrap()
+                    self.partition_key.composed_key(e)?
                 ),
             ),
             sort_key: (
                 self.sort_key.field.to_string(),
-                format!("${}{}", a.entity, self.sort_key.composed_key(e).unwrap()),
+                format!("${}{}", a.entity, self.sort_key.composed_key(e)?),
             ),
         })
     }
@@ -63,18 +77,13 @@ impl Key {
         let mut a = String::new();
         for b in self.composite.iter() {
             // todo: number types
-            let c = e.get_field::<String>(b).unwrap();
+            let c = e
+                .get_field::<String>(b)
+                .ok_or(DeezError::FailedDowncast(b.to_string()))?;
             a.push_str(&format!("#{}_{}", b, c));
         }
         Ok(a)
     }
-}
-
-#[derive(Debug)]
-pub struct Attribute {
-    pub dynamo_type: DynamoType,
-    // pub rename: Option<&'static str> ???
-    // pub required: bool,
 }
 
 #[derive(Eq, Hash, PartialEq, Debug)]

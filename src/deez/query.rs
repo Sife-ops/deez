@@ -5,7 +5,7 @@ use std::collections::HashMap;
 
 impl super::Deez {
     pub fn query(&self, index: Index, entity: &impl DeezEntity) -> DeezResult<DeezQueryBuilder> {
-        let i = entity.get_composed_index(&index).unwrap();
+        let i = entity.get_composed_index(&index)?;
 
         let mut builder = self.client.query().table_name(entity.schema().table);
         if index != Index::Primary {
@@ -52,11 +52,12 @@ impl DeezQueryBuilder {
     // }
 
     pub fn begins(mut self, entity: &impl DeezEntity) -> DeezResult<DeezQueryBuilder> {
-        let i = entity.get_composed_index(&self.index).unwrap();
+        let i = entity.get_composed_index(&self.index)?;
         *self
             .values
             .get_mut(":sk1")
-            .ok_or(DeezError::MapKey(":sk1".to_string()))? = AttributeValue::S(i.sort_key.1);
+            .ok_or(DeezError::UnknownAttributeValueKey(":sk1".to_string()))? =
+            AttributeValue::S(i.sort_key.1);
         Ok(self)
     }
 
@@ -66,12 +67,13 @@ impl DeezQueryBuilder {
         entity1: &impl DeezEntity,
         entity2: &impl DeezEntity,
     ) -> DeezResult<DeezQueryBuilder> {
-        let i1 = entity1.get_composed_index(&self.index).unwrap();
-        let i2 = entity2.get_composed_index(&self.index).unwrap();
+        let i1 = entity1.get_composed_index(&self.index)?;
+        let i2 = entity2.get_composed_index(&self.index)?;
         *self
             .values
             .get_mut(":sk1")
-            .ok_or(DeezError::MapKey(":sk1".to_string()))? = AttributeValue::S(i1.sort_key.1);
+            .ok_or(DeezError::UnknownAttributeValueKey(":sk1".to_string()))? =
+            AttributeValue::S(i1.sort_key.1);
         self.values
             .insert(":sk2".to_string(), AttributeValue::S(i2.sort_key.1));
         self.exp_appendix = String::from("and #sk1 BETWEEN :sk1 AND :sk2");
@@ -80,22 +82,24 @@ impl DeezQueryBuilder {
 
     // todo: lte
     pub fn lt(mut self, entity: &impl DeezEntity) -> DeezResult<DeezQueryBuilder> {
-        let i = entity.get_composed_index(&self.index).unwrap();
+        let i = entity.get_composed_index(&self.index)?;
         *self
             .values
             .get_mut(":sk1")
-            .ok_or(DeezError::MapKey(":sk1".to_string()))? = AttributeValue::S(i.sort_key.1);
+            .ok_or(DeezError::UnknownAttributeValueKey(":sk1".to_string()))? =
+            AttributeValue::S(i.sort_key.1);
         self.exp_appendix = String::from("and #sk1 < :sk1");
         Ok(self)
     }
 
     // todo: gt
     pub fn gte(mut self, entity: &impl DeezEntity) -> DeezResult<DeezQueryBuilder> {
-        let i = entity.get_composed_index(&self.index).unwrap();
+        let i = entity.get_composed_index(&self.index)?;
         *self
             .values
             .get_mut(":sk1")
-            .ok_or(DeezError::MapKey(":sk1".to_string()))? = AttributeValue::S(i.sort_key.1);
+            .ok_or(DeezError::UnknownAttributeValueKey(":sk1".to_string()))? =
+            AttributeValue::S(i.sort_key.1);
         self.exp_appendix = String::from("and #sk1 >= :sk1");
         Ok(self)
     }

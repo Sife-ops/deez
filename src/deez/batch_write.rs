@@ -45,7 +45,7 @@ impl<'a> DeezBatchWriteBuilder<'a> {
         entities: Vec<&T>,
     ) -> DeezResult<DeezBatchWriteBuilder<'a>> {
         for entity in entities.iter() {
-            let a = entity.get_composed_index(&Index::Primary).unwrap();
+            let a = entity.get_composed_index(&Index::Primary)?;
             let request = WriteRequest::builder()
                 .delete_request(
                     DeleteRequest::builder()

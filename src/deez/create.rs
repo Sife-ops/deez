@@ -5,7 +5,7 @@ use std::collections::HashMap;
 impl super::Deez {
     pub fn create(&self, entity: &impl DeezEntity) -> DeezResult<PutItemFluentBuilder> {
         let av_map = entity.to_av_map_with_keys()?;
-        let primary_index = entity.get_composed_index(&Index::Primary).unwrap();
+        let primary_index = entity.get_composed_index(&Index::Primary)?;
 
         Ok(self
             .client

@@ -6,12 +6,10 @@ use std::num::ParseIntError;
 pub enum DeezError {
     #[error("AttributeValue error")]
     AWSAttributeValue(#[from] AttributeValueError),
-    #[error("missing key in map: {0}")]
-    MapKey(String),
     #[error(transparent)]
     ParseIntError(#[from] ParseIntError),
-    #[error("invalid composite: {0}, must use String")]
-    InvalidComposite(String),
+    // #[error("invalid composite: {0}, must use String")]
+    // InvalidComposite(String),
     #[error("unknown key: {0}")]
     UnknownIndex(String),
     #[error("empty entity vector")]
@@ -22,6 +20,8 @@ pub enum DeezError {
     UnknownAttribute(String),
     #[error("failed downcast for struct field: {0}")]
     FailedDowncast(String),
+    #[error("unknown attribute value key: {0}")]
+    UnknownAttributeValueKey(String),
 }
 
 // todo: cringed

@@ -1,5 +1,5 @@
 use proc_macro::{self, TokenStream};
-use quote::{format_ident, quote, ToTokens};
+use quote::{quote, ToTokens};
 use syn::{parse_macro_input, DeriveInput};
 
 // code references:
@@ -27,7 +27,7 @@ pub fn derive(input: TokenStream) -> TokenStream {
 
     // let mut inserts = quote! {};
     let mut reads = quote! {};
-    let mut partial_fields = quote! {};
+    // let mut partial_fields = quote! {};
     // let mut partial_inserts = quote! {};
 
     for field in fields.iter() {
@@ -38,34 +38,29 @@ pub fn derive(input: TokenStream) -> TokenStream {
             _ => panic!("field.ty not a `TypePath`"),
         };
 
-        // todo: too much unwrap
         match field_type.clone().into_token_stream().to_string().as_ref() {
             "String" => {
                 reads = quote! {
                     #reads
                     #field_ident: m
                         .get(#field_name)
-                        // .ok_or(DeezError::MapKey(#field_name.to_string()))?
-                        .unwrap()
-                        // .as_s()?
-                        .as_s()
-                        .unwrap()
+                        .ok_or(DeezError::UnknownAttributeValueKey(#field_name.to_string()))?
+                        .as_s()?
                         .clone(),
                 };
             }
+
             "bool" => {
                 reads = quote! {
                     #reads
                     #field_ident: m
                         .get(#field_name)
-                        // .ok_or(DeezError::MapKey(#field_name.to_string()))?
-                        .unwrap()
-                        // .as_bool()?
-                        .as_bool()
-                        .unwrap()
+                        .ok_or(DeezError::UnknownAttributeValueKey(#field_name.to_string()))?
+                        .as_bool()?
                         .clone(),
                 };
             }
+
             // DynamoDB attribute of type Number can store 126-bit integers (or
             // 127-bit unsigned integers, with serious caveats).
             // https://docs.aws.amazon.com/amazondynamodb/latest/developerguide/HowItWorks.NamingRulesDataTypes.html#HowItWorks.DataTypes.Number
@@ -74,60 +69,56 @@ pub fn derive(input: TokenStream) -> TokenStream {
                     #reads
                     #field_ident: m
                         .get(#field_name)
-                        // .ok_or(DeezError::MapKey(#field_name.to_string()))?
-                        .unwrap()
-                        // .as_n()?
-                        .as_n()
-                        .unwrap()
+                        .ok_or(DeezError::UnknownAttributeValueKey(#field_name.to_string()))?
+                        .as_n()?
                         .clone()
-                        // .parse::<#field_type>()?,
-                        .parse::<#field_type>()
-                        .unwrap(),
+                        .parse::<#field_type>()?,
                 };
             }
+
             &_ => panic!(
                 "unsupported type: {}",
                 field_type.clone().into_token_stream().to_string()
             ),
         }
 
-        partial_fields = quote! {
-            #partial_fields
-            pub #field_ident: Option<#field_type>,
-        };
+        // partial_fields = quote! {
+        //     #partial_fields
+        //     pub #field_ident: Option<#field_type>,
+        // };
     }
 
     let name = &ast.ident;
-    let partial_name = format_ident!("{}Partial", name);
+    // let partial_name = format_ident!("{}Partial", name);
 
-    // let (ig, tg, wc) = ast.generics.split_for_impl();
+    let (ig, tg, wc) = ast.generics.split_for_impl();
     let output = quote! {
-        // impl #ig DeezEntity for #name #tg #wc {
-        //     fn from_av_map(m: &HashMap<String, AttributeValue>) -> Result<#name, DeezError> {
-        //         Ok(#name {
+        impl #ig DeezEntity for #name #tg #wc {
+            fn from_av_map(m: &HashMap<String, AttributeValue>) -> Result<#name, DeezError> {
+                Ok(#name {
+                    #reads
+                    ..Default::default()
+                })
+            }
+        }
+
+        // impl From<&HashMap<String,AttributeValue>> for #name {
+        //     fn from(m: &HashMap<String,AttributeValue>) -> #name {
+        //         #name {
         //             #reads
         //             ..Default::default()
-        //         })
+        //         }
         //     }
         // }
 
-        impl From<&HashMap<String,AttributeValue>> for #name {
-            fn from(m: &HashMap<String,AttributeValue>) -> #name {
-                #name {
-                    #reads
-                    ..Default::default()
-                }
-            }
-        }
-
-        impl From<HashMap<String,AttributeValue>> for #name {
-            fn from(m: HashMap<String,AttributeValue>) -> #name {
-                #name {
-                    #reads
-                    ..Default::default()
-                }
-            }
-        }
+        // impl From<HashMap<String,AttributeValue>> for #name {
+        //     fn from(m: HashMap<String,AttributeValue>) -> #name {
+        //         #name {
+        //             #reads
+        //             ..Default::default()
+        //         }
+        //     }
+        // }
     };
 
     output.into()

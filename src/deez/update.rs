@@ -1,4 +1,4 @@
-use crate::{DeezEntity, DeezResult, DynamoType, Index, Schema};
+use crate::{DeezEntity, DeezError, DeezResult, DynamoType, Index, Schema};
 use aws_sdk_dynamodb::{
     operation::update_item::builders::UpdateItemFluentBuilder, types::AttributeValue,
 };
@@ -6,7 +6,7 @@ use std::collections::HashMap;
 
 impl super::Deez {
     pub fn update(&self, entity: &impl DeezEntity) -> DeezResult<DeezUpdateBuilder> {
-        let i = entity.get_composed_index(&Index::Primary).unwrap();
+        let i = entity.get_composed_index(&Index::Primary)?;
         let request = self
             .client
             .update_item()
@@ -54,13 +54,17 @@ impl DeezUpdateBuilder {
                 _ => self.exp.push_str(&format!(", #{} = :{}", a, a)),
             }
 
-            let c = self.schema.attributes.get(a.as_str()).unwrap();
-            match c.dynamo_type {
+            match self
+                .schema
+                .attributes
+                .get(a.as_str())
+                .ok_or(DeezError::UnknownAttribute(a.to_string()))?
+            {
                 DynamoType::DynamoString => {
                     self.values
                         .insert(format!(":{}", a), AttributeValue::S(b.to_string()));
                 }
-                DynamoType::DynamoNumber => {
+                DynamoType::DynamoNumber(_) => {
                     self.values
                         .insert(format!(":{}", a), AttributeValue::N(b.to_string()));
                 }
