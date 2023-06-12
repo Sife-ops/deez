@@ -25,7 +25,6 @@ pub fn derive(input: TokenStream) -> TokenStream {
         _ => panic!("ast.data not a `Struct`"),
     };
 
-    // let mut inserts = quote! {};
     let mut reads = quote! {};
     // let mut partial_fields = quote! {};
     // let mut partial_inserts = quote! {};
@@ -101,24 +100,6 @@ pub fn derive(input: TokenStream) -> TokenStream {
                 })
             }
         }
-
-        // impl From<&HashMap<String,AttributeValue>> for #name {
-        //     fn from(m: &HashMap<String,AttributeValue>) -> #name {
-        //         #name {
-        //             #reads
-        //             ..Default::default()
-        //         }
-        //     }
-        // }
-
-        // impl From<HashMap<String,AttributeValue>> for #name {
-        //     fn from(m: HashMap<String,AttributeValue>) -> #name {
-        //         #name {
-        //             #reads
-        //             ..Default::default()
-        //         }
-        //     }
-        // }
     };
 
     output.into()

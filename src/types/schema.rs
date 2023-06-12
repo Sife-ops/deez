@@ -3,27 +3,6 @@ use bevy_reflect::GetField;
 use std::collections::HashMap;
 
 #[derive(Debug)]
-pub enum RustType {
-    Usize,
-    Isize,
-    U8,
-    I8,
-    U16,
-    I16,
-    U32,
-    I32,
-    U64,
-    I64,
-}
-
-#[derive(Debug)]
-pub enum DynamoType {
-    DynamoString,
-    DynamoNumber(RustType),
-    DynamoBool,
-}
-
-#[derive(Debug)]
 pub struct Schema {
     pub table: &'static str,
     pub service: &'static str,
@@ -67,6 +46,27 @@ impl IndexKeys {
 }
 
 #[derive(Debug)]
+pub enum RustType {
+    Usize,
+    Isize,
+    U8,
+    I8,
+    U16,
+    I16,
+    U32,
+    I32,
+    U64,
+    I64,
+}
+
+#[derive(Debug)]
+pub enum DynamoType {
+    DynamoString,
+    DynamoNumber(RustType),
+    DynamoBool,
+}
+
+#[derive(Debug)]
 pub struct Key {
     pub field: &'static str,
     pub composite: Vec<&'static str>,
@@ -75,13 +75,90 @@ pub struct Key {
 impl Key {
     pub fn composed_key(&self, e: &impl DeezEntity) -> DeezResult<String> {
         let mut a = String::new();
+        let s = e.schema();
+
         for b in self.composite.iter() {
-            // todo: number types
-            let c = e
-                .get_field::<String>(b)
-                .ok_or(DeezError::FailedDowncast(b.to_string()))?;
-            a.push_str(&format!("#{}_{}", b, c));
+            let d = s
+                .attributes
+                .get(b)
+                .ok_or(DeezError::UnknownAttribute(b.to_string()))?;
+
+            let x: String;
+            match d {
+                DynamoType::DynamoBool => return Err(DeezError::InvalidComposite),
+                DynamoType::DynamoString => {
+                    x = e
+                        .get_field::<String>(b)
+                        .ok_or(DeezError::UnknownStructField(b.to_string()))?
+                        .to_string();
+                }
+                DynamoType::DynamoNumber(rt) => match rt {
+                    RustType::Usize => {
+                        x = e
+                            .get_field::<usize>(b)
+                            .ok_or(DeezError::UnknownStructField(b.to_string()))?
+                            .to_string();
+                    }
+                    RustType::Isize => {
+                        x = e
+                            .get_field::<isize>(b)
+                            .ok_or(DeezError::UnknownStructField(b.to_string()))?
+                            .to_string();
+                    }
+                    RustType::U8 => {
+                        x = e
+                            .get_field::<u8>(b)
+                            .ok_or(DeezError::UnknownStructField(b.to_string()))?
+                            .to_string();
+                    }
+                    RustType::I8 => {
+                        x = e
+                            .get_field::<i8>(b)
+                            .ok_or(DeezError::UnknownStructField(b.to_string()))?
+                            .to_string();
+                    }
+                    RustType::U16 => {
+                        x = e
+                            .get_field::<u16>(b)
+                            .ok_or(DeezError::UnknownStructField(b.to_string()))?
+                            .to_string();
+                    }
+                    RustType::I16 => {
+                        x = e
+                            .get_field::<i16>(b)
+                            .ok_or(DeezError::UnknownStructField(b.to_string()))?
+                            .to_string();
+                    }
+                    RustType::U32 => {
+                        x = e
+                            .get_field::<u32>(b)
+                            .ok_or(DeezError::UnknownStructField(b.to_string()))?
+                            .to_string();
+                    }
+                    RustType::I32 => {
+                        x = e
+                            .get_field::<i32>(b)
+                            .ok_or(DeezError::UnknownStructField(b.to_string()))?
+                            .to_string();
+                    }
+                    RustType::U64 => {
+                        x = e
+                            .get_field::<u64>(b)
+                            .ok_or(DeezError::UnknownStructField(b.to_string()))?
+                            .to_string();
+                    }
+                    RustType::I64 => {
+                        x = e
+                            .get_field::<i64>(b)
+                            .ok_or(DeezError::UnknownStructField(b.to_string()))?
+                            .to_string();
+                    }
+                },
+            }
+
+            a.push_str(&format!("#{}_{}", b, x));
         }
+
         Ok(a)
     }
 }

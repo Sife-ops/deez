@@ -36,13 +36,59 @@ pub trait DeezSchema {
 }
 
 pub trait DeezEntity: DeezSchema + bevy_reflect::Struct {
+    fn to_av_map_with_keys(&self) -> DeezResult<HashMap<String, AttributeValue>>
+    where
+        Self: Sized,
+    {
+        let mut m = self.to_av_map()?;
+        let s = self.schema();
+
+        let b = s.primary_index.composed_index(self)?;
+        {
+            let (c, d) = b.partition_key;
+            m.insert(c, AttributeValue::S(d));
+        }
+        {
+            let (c, d) = b.sort_key;
+            m.insert(c, AttributeValue::S(d));
+        }
+
+        for (_, c) in s.global_secondary_indexes {
+            let d = c.composed_index(self)?;
+            {
+                let (e, f) = d.partition_key;
+                m.insert(e, AttributeValue::S(f));
+            }
+            {
+                let (e, f) = d.sort_key;
+                m.insert(e, AttributeValue::S(f));
+            }
+        }
+
+        Ok(m)
+    }
+
+    fn get_composed_index(&self, i: &Index) -> DeezResult<IndexKeysComposed>
+    where
+        Self: Sized,
+    {
+        let schema = self.schema();
+        match i {
+            Index::Primary => Ok(schema.primary_index.composed_index(self)?),
+            _ => Ok(schema
+                .global_secondary_indexes
+                .get(i)
+                .ok_or(DeezError::UnknownSchemaIndex(i.to_string()))?
+                .composed_index(self)?),
+        }
+    }
+
     fn from_av_map(m: &HashMap<String, AttributeValue>) -> DeezResult<Self>
     where
         Self: Sized;
 
     fn to_av_map(&self) -> DeezResult<HashMap<String, AttributeValue>> {
         let mut av_map: HashMap<String, AttributeValue> = HashMap::new();
-
         let schema = self.schema();
 
         for (i, value) in self.iter_fields().enumerate() {
@@ -70,7 +116,7 @@ pub trait DeezEntity: DeezSchema + bevy_reflect::Struct {
                             .downcast_ref::<bool>()
                             .ok_or(DeezError::FailedDowncast(field_name.to_string()))?
                             .clone(),
-                    );
+                    )
                 }
                 DynamoType::DynamoNumber(rt) => match rt {
                     RustType::Usize => {
@@ -160,53 +206,6 @@ pub trait DeezEntity: DeezSchema + bevy_reflect::Struct {
         }
 
         Ok(av_map)
-    }
-
-    fn to_av_map_with_keys(&self) -> DeezResult<HashMap<String, AttributeValue>>
-    where
-        Self: Sized,
-    {
-        let mut m = self.to_av_map()?;
-        let s = self.schema();
-
-        let b = s.primary_index.composed_index(self)?;
-        {
-            let (c, d) = b.partition_key;
-            m.insert(c, AttributeValue::S(d));
-        }
-        {
-            let (c, d) = b.sort_key;
-            m.insert(c, AttributeValue::S(d));
-        }
-
-        for (_, c) in s.global_secondary_indexes {
-            let d = c.composed_index(self)?;
-            {
-                let (e, f) = d.partition_key;
-                m.insert(e, AttributeValue::S(f));
-            }
-            {
-                let (e, f) = d.sort_key;
-                m.insert(e, AttributeValue::S(f));
-            }
-        }
-
-        Ok(m)
-    }
-
-    fn get_composed_index(&self, i: &Index) -> DeezResult<IndexKeysComposed>
-    where
-        Self: Sized,
-    {
-        let schema = self.schema();
-        match i {
-            Index::Primary => Ok(schema.primary_index.composed_index(self)?),
-            _ => Ok(schema
-                .global_secondary_indexes
-                .get(i)
-                .ok_or(DeezError::UnknownIndex(i.to_string()))?
-                .composed_index(self)?),
-        }
     }
 }
 

@@ -1,6 +1,6 @@
 use aws_sdk_dynamodb::types::AttributeValue;
-use thiserror::Error;
 use std::num::ParseIntError;
+use thiserror::Error;
 
 #[derive(Error, Debug)]
 pub enum DeezError {
@@ -11,17 +11,21 @@ pub enum DeezError {
     // #[error("invalid composite: {0}, must use String")]
     // InvalidComposite(String),
     #[error("unknown key: {0}")]
-    UnknownIndex(String),
+    UnknownSchemaIndex(String),
     #[error("empty entity vector")]
     EmptyEntityVec,
     #[error("unknown struct index: {0}")]
     UnknownStructIndex(usize),
+    #[error("unknown struct field: {0}")]
+    UnknownStructField(String),
     #[error("unknown attribute: {0}")]
     UnknownAttribute(String),
     #[error("failed downcast for struct field: {0}")]
     FailedDowncast(String),
     #[error("unknown attribute value key: {0}")]
     UnknownAttributeValueKey(String),
+    #[error("invalid type for key composite: boolean")]
+    InvalidComposite,
 }
 
 // todo: cringed
