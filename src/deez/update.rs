@@ -5,6 +5,7 @@ use aws_sdk_dynamodb::{
 use std::collections::HashMap;
 
 impl super::Deez {
+    // todo: patch
     pub fn update(&self, entity: &impl DeezEntity) -> DeezResult<DeezUpdateBuilder> {
         let i = entity.get_composed_index(&Index::Primary)?;
         let request = self
@@ -19,8 +20,8 @@ impl super::Deez {
         Ok(DeezUpdateBuilder {
             builder: request,
             exp: String::new(),
-            names: HashMap::new(),
-            values: HashMap::new(),
+            exp_attr_names: HashMap::new(),
+            exp_attr_values: HashMap::new(),
             schema: entity.schema(),
         })
     }
@@ -30,55 +31,92 @@ impl super::Deez {
     // todo: remove
 }
 
-// #[derive(Debug)]
+#[derive(Debug)]
 pub struct DeezUpdateBuilder {
     pub builder: UpdateItemFluentBuilder,
     pub exp: String,
-    pub names: HashMap<String, String>,
-    pub values: HashMap<String, AttributeValue>,
+    pub exp_attr_names: HashMap<String, String>,
+    pub exp_attr_values: HashMap<String, AttributeValue>,
     pub schema: Schema,
 }
 
 impl DeezUpdateBuilder {
-    pub fn set(mut self, m: HashMap<String, String>) -> DeezResult<DeezUpdateBuilder> {
+    // todo: set_bool, set_number
+    pub fn set_string(mut self, map: HashMap<String, String>) -> DeezResult<DeezUpdateBuilder> {
         match self.exp.len() {
             0 => self.exp.push_str("SET"),
             _ => self.exp.push_str(" SET"),
         }
 
-        for (i, (a, b)) in m.iter().enumerate() {
-            self.names.insert(format!("#{}", a), a.clone());
+        for (i, (update_key, update_value)) in map.iter().enumerate() {
+            self.exp_attr_names
+                .insert(format!("#{}", update_key), update_key.clone());
+
+            let exp_value_var = self.make_exp_value_var(&self.exp_attr_values, update_key);
 
             match i {
-                0 => self.exp.push_str(&format!(" #{} = :{}", a, a)),
-                _ => self.exp.push_str(&format!(", #{} = :{}", a, a)),
+                0 => self
+                    .exp
+                    .push_str(&format!(" #{} = :{}", update_key, exp_value_var)),
+                _ => self
+                    .exp
+                    .push_str(&format!(", #{} = :{}", update_key, exp_value_var)),
             }
 
             match self
                 .schema
                 .attributes
-                .get(a.as_str())
-                .ok_or(DeezError::UnknownAttribute(a.to_string()))?
+                .get(update_key.as_str())
+                .ok_or(DeezError::UnknownAttribute(update_key.to_string()))?
             {
                 DynamoType::DynamoString => {
-                    self.values
-                        .insert(format!(":{}", a), AttributeValue::S(b.to_string()));
+                    self.exp_attr_values.insert(
+                        format!(":{}", exp_value_var),
+                        AttributeValue::S(update_value.to_string()),
+                    );
                 }
+                _ => panic!(), // todo: Err()
+            }
+        }
+
+        Ok(self)
+    }
+
+    // todo: add_float
+    pub fn add(mut self, map: HashMap<String, u64>) -> DeezResult<DeezUpdateBuilder> {
+        match self.exp.len() {
+            0 => self.exp.push_str("ADD"),
+            _ => self.exp.push_str(" ADD"),
+        }
+
+        for (i, (update_key, update_value)) in map.iter().enumerate() {
+            self.exp_attr_names
+                .insert(format!("#{}", update_key), update_key.clone());
+
+            let exp_value_var = self.make_exp_value_var(&self.exp_attr_values, update_key);
+
+            match i {
+                0 => self
+                    .exp
+                    .push_str(&format!(" #{} :{}", update_key, exp_value_var)),
+                _ => self
+                    .exp
+                    .push_str(&format!(", #{} :{}", update_key, exp_value_var)),
+            }
+
+            match self
+                .schema
+                .attributes
+                .get(update_key.as_str())
+                .ok_or(DeezError::UnknownAttribute(update_key.to_string()))?
+            {
                 DynamoType::DynamoNumber(_) => {
-                    self.values
-                        .insert(format!(":{}", a), AttributeValue::N(b.to_string()));
+                    self.exp_attr_values.insert(
+                        format!(":{}", exp_value_var),
+                        AttributeValue::N(update_value.to_string()),
+                    );
                 }
-                DynamoType::DynamoBool => {
-                    if b == "true" {
-                        self.values
-                            .insert(format!(":{}", a), AttributeValue::Bool(true));
-                    } else if b == "fale" {
-                        self.values
-                            .insert(format!(":{}", a), AttributeValue::Bool(false));
-                    } else {
-                        panic!();
-                    }
-                }
+                _ => panic!(), // todo: Err()
             }
         }
 
@@ -88,8 +126,16 @@ impl DeezUpdateBuilder {
     pub fn build(self) -> UpdateItemFluentBuilder {
         self.builder
             .update_expression(self.exp)
-            .set_expression_attribute_names(Some(self.names))
-            .set_expression_attribute_values(Some(self.values))
+            .set_expression_attribute_names(Some(self.exp_attr_names))
+            .set_expression_attribute_values(Some(self.exp_attr_values))
+    }
+
+    fn make_exp_value_var(&self, a: &HashMap<String, AttributeValue>, b: &String) -> String {
+        let c = a
+            .iter()
+            .filter(|(x, _)| x.starts_with(b))
+            .collect::<HashMap<&String, &AttributeValue>>();
+        format!("{}_u{}", b, c.len())
     }
 }
 
@@ -110,24 +156,35 @@ mod tests {
                 ..Default::default()
             })
             .unwrap()
-            .set(HashMap::from([
+            .set_string(HashMap::from([
                 ("foo_string_3".to_string(), "ccc".to_string()),
                 ("foo_string_4".to_string(), "ddd".to_string()),
             ]))
             .unwrap();
 
+        println!("{:#?}", u.exp);
+        println!("{:#?}", u.exp_attr_names);
+        println!("{:#?}", u.exp_attr_values);
+
         assert!(
-            u.exp == "SET #foo_string_3 = :foo_string_3, #foo_string_4 = :foo_string_4"
-                || u.exp == "SET #foo_string_4 = :foo_string_4, #foo_string_3 = :foo_string_3"
+            u.exp == "SET #foo_string_3 = :foo_string_3_u0, #foo_string_4 = :foo_string_4_u0"
+                || u.exp
+                    == "SET #foo_string_4 = :foo_string_4_u0, #foo_string_3 = :foo_string_3_u0"
         );
-        assert_eq!(u.names.get("#foo_string_3").unwrap(), "foo_string_3");
-        assert_eq!(u.names.get("#foo_string_4").unwrap(), "foo_string_4");
         assert_eq!(
-            u.values.get(":foo_string_3").unwrap(),
+            u.exp_attr_names.get("#foo_string_3").unwrap(),
+            "foo_string_3"
+        );
+        assert_eq!(
+            u.exp_attr_names.get("#foo_string_4").unwrap(),
+            "foo_string_4"
+        );
+        assert_eq!(
+            u.exp_attr_values.get(":foo_string_3_u0").unwrap(),
             &AttributeValue::S("ccc".to_string())
         );
         assert_eq!(
-            u.values.get(":foo_string_4").unwrap(),
+            u.exp_attr_values.get(":foo_string_4_u0").unwrap(),
             &AttributeValue::S("ddd".to_string())
         );
     }

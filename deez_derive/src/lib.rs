@@ -96,7 +96,7 @@ pub fn derive(input: TokenStream) -> TokenStream {
             fn from_av_map(m: &HashMap<String, AttributeValue>) -> Result<#name, DeezError> {
                 Ok(#name {
                     #reads
-                    ..Default::default()
+                    // ..Default::default()
                 })
             }
         }

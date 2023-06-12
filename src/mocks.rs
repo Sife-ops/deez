@@ -23,17 +23,31 @@ pub mod mocks {
         Deez::new(make_mock_client().await)
     }
 
-    #[derive(DeezEntity, Debug, Default, Reflect)]
+    #[derive(DeezEntity, Debug, Reflect)]
     pub struct Foo {
         pub foo_string_1: String,
         pub foo_string_2: String,
         pub foo_string_3: String,
         pub foo_string_4: String,
-        pub foo_usize: isize,
+        pub foo_isize: isize,
         pub foo_bool: bool,
     }
 
+    impl Default for Foo {
+        fn default() -> Self {
+            Foo {
+                foo_string_1: "".to_string(),
+                foo_string_2: "".to_string(),
+                foo_string_3: "".to_string(),
+                foo_string_4: "".to_string(),
+                foo_isize: 69,
+                foo_bool: false,
+            }
+        }
+    }
+
     pub const GSI1: Index = Index::Gsi1("gsi1");
+    pub const GSI2: Index = Index::Gsi2("gsi2");
 
     impl DeezSchema for Foo {
         fn schema(&self) -> Schema {
@@ -51,25 +65,40 @@ pub mod mocks {
                         composite: vec![],
                     },
                 },
-                global_secondary_indexes: HashMap::from([(
-                    GSI1,
-                    IndexKeys {
-                        partition_key: Key {
-                            field: "gsi1pk",
-                            composite: vec!["foo_string_2"],
+                global_secondary_indexes: HashMap::from([
+                    (
+                        GSI1,
+                        IndexKeys {
+                            partition_key: Key {
+                                field: "gsi1pk",
+                                composite: vec!["foo_string_2"],
+                            },
+                            sort_key: Key {
+                                field: "gsi1sk",
+                                composite: vec!["foo_string_1"],
+                            },
                         },
-                        sort_key: Key {
-                            field: "gsi1sk",
-                            composite: vec!["foo_string_1"],
+                    ),
+                    (
+                        GSI2,
+                        IndexKeys {
+                            partition_key: Key {
+                                field: "gsi2pk",
+                                composite: vec!["foo_string_3"],
+                            },
+                            sort_key: Key {
+                                field: "gsi2sk",
+                                composite: vec!["foo_isize"],
+                            },
                         },
-                    },
-                )]),
+                    ),
+                ]),
                 attributes: HashMap::from([
                     ("foo_string_1", DynamoType::DynamoString),
                     ("foo_string_2", DynamoType::DynamoString),
                     ("foo_string_3", DynamoType::DynamoString),
                     ("foo_string_4", DynamoType::DynamoString),
-                    ("foo_usize", DynamoType::DynamoNumber(RustType::Isize)),
+                    ("foo_isize", DynamoType::DynamoNumber(RustType::Isize)),
                     ("foo_bool", DynamoType::DynamoBool),
                 ]),
             }

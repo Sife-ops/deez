@@ -221,11 +221,12 @@ mod tests {
             foo_string_2: "bbb".to_string(),
             foo_string_3: "ccc".to_string(),
             foo_string_4: "ddd".to_string(),
-            foo_usize: 33,
             foo_bool: true,
+            ..Default::default()
         };
 
         let b = a.to_av_map_with_keys().unwrap();
+        // println!("{:#?}", b);
 
         assert_eq!(
             b["pk"],
@@ -240,17 +241,24 @@ mod tests {
             b["gsi1sk"],
             AttributeValue::S("$fooentity#foo_string_1_aaa".to_string())
         );
+        assert_eq!(
+            b["gsi2pk"],
+            AttributeValue::S("$fooservice#fooentity#foo_string_3_ccc".to_string())
+        );
+        assert_eq!(
+            b["gsi2sk"],
+            AttributeValue::S("$fooentity#foo_isize_69".to_string())
+        );
 
         let c = Foo::from_av_map(&b).unwrap();
         // let c = Foo::from(&b);
-
         // println!("{:#?}", c);
 
         assert_eq!(c.foo_string_1, "aaa".to_string());
         assert_eq!(c.foo_string_2, "bbb".to_string());
         assert_eq!(c.foo_string_3, "ccc".to_string());
         assert_eq!(c.foo_string_4, "ddd".to_string());
-        assert_eq!(c.foo_usize, 33);
+        assert_eq!(c.foo_isize, 69);
         assert_eq!(c.foo_bool, true);
     }
 }
