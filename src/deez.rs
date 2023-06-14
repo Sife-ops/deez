@@ -43,25 +43,25 @@ pub trait DeezEntity: DeezSchema + bevy_reflect::Struct {
         let mut m = self.to_av_map()?;
         let s = self.schema();
 
-        let b = s.primary_index.composed_index(self)?;
+        let b = s.primary_index.composed_index(&m, &s)?;
         {
             let (c, d) = b.partition_key;
-            m.insert(c, AttributeValue::S(d));
+            m.insert(c.to_string(), AttributeValue::S(d));
         }
         {
             let (c, d) = b.sort_key;
-            m.insert(c, AttributeValue::S(d));
+            m.insert(c.to_string(), AttributeValue::S(d));
         }
 
         for (_, c) in s.global_secondary_indexes {
-            let d = c.composed_index(self)?;
+            let d = c.composed_index(&m, &self.schema())?;
             {
                 let (e, f) = d.partition_key;
-                m.insert(e, AttributeValue::S(f));
+                m.insert(e.to_string(), AttributeValue::S(f));
             }
             {
                 let (e, f) = d.sort_key;
-                m.insert(e, AttributeValue::S(f));
+                m.insert(e.to_string(), AttributeValue::S(f));
             }
         }
 
@@ -72,14 +72,15 @@ pub trait DeezEntity: DeezSchema + bevy_reflect::Struct {
     where
         Self: Sized,
     {
+        let m = self.to_av_map()?;
         let schema = self.schema();
         match i {
-            Index::Primary => Ok(schema.primary_index.composed_index(self)?),
+            Index::Primary => Ok(schema.primary_index.composed_index(&m, &schema)?),
             _ => Ok(schema
                 .global_secondary_indexes
                 .get(i)
                 .ok_or(DeezError::UnknownSchemaIndex(i.to_string()))?
-                .composed_index(self)?),
+                .composed_index(&m, &schema)?),
         }
     }
 
@@ -221,6 +222,8 @@ mod tests {
             foo_string_2: "bbb".to_string(),
             foo_string_3: "ccc".to_string(),
             foo_string_4: "ddd".to_string(),
+            foo_string_5: "eee".to_string(),
+            foo_string_6: "fff".to_string(),
             foo_bool: true,
             ..Default::default()
         };
@@ -247,17 +250,18 @@ mod tests {
         );
         assert_eq!(
             b["gsi2sk"],
-            AttributeValue::S("$fooentity#foo_isize_69".to_string())
+            AttributeValue::S("$fooentity#foo_string_4_ddd#foo_string_5_eee".to_string())
         );
 
         let c = Foo::from_av_map(&b).unwrap();
-        // let c = Foo::from(&b);
         // println!("{:#?}", c);
 
         assert_eq!(c.foo_string_1, "aaa".to_string());
         assert_eq!(c.foo_string_2, "bbb".to_string());
         assert_eq!(c.foo_string_3, "ccc".to_string());
         assert_eq!(c.foo_string_4, "ddd".to_string());
+        assert_eq!(c.foo_string_5, "eee".to_string());
+        assert_eq!(c.foo_string_6, "fff".to_string());
         assert_eq!(c.foo_isize, 69);
         assert_eq!(c.foo_bool, true);
     }

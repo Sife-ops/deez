@@ -5,8 +5,8 @@ pub mod mocks {
     use std::collections::HashMap;
 
     use crate::{
-        deez::DeezSchema, Deez, DeezEntity, DeezError, DynamoType, Index, IndexKeys, Key, Reflect,
-        RustType, Schema,
+        deez::DeezSchema, Deez, DeezEntity, DeezError, DynamoType, Index, IndexKey, IndexKeys, Key,
+        Reflect, RustType, Schema,
     };
 
     pub async fn make_mock_client() -> Client {
@@ -29,6 +29,8 @@ pub mod mocks {
         pub foo_string_2: String,
         pub foo_string_3: String,
         pub foo_string_4: String,
+        pub foo_string_5: String,
+        pub foo_string_6: String,
         pub foo_isize: isize,
         pub foo_bool: bool,
     }
@@ -40,6 +42,8 @@ pub mod mocks {
                 foo_string_2: "".to_string(),
                 foo_string_3: "".to_string(),
                 foo_string_4: "".to_string(),
+                foo_string_5: "".to_string(),
+                foo_string_6: "".to_string(),
                 foo_isize: 69,
                 foo_bool: false,
             }
@@ -56,40 +60,40 @@ pub mod mocks {
                 service: "fooservice",
                 entity: "fooentity",
                 primary_index: IndexKeys {
-                    partition_key: Key {
+                    partition_key: IndexKey::Partition(Key {
                         field: "pk",
                         composite: vec!["foo_string_1"],
-                    },
-                    sort_key: Key {
+                    }),
+                    sort_key: IndexKey::Sort(Key {
                         field: "sk",
                         composite: vec![],
-                    },
+                    }),
                 },
                 global_secondary_indexes: HashMap::from([
                     (
                         GSI1,
                         IndexKeys {
-                            partition_key: Key {
+                            partition_key: IndexKey::Partition(Key {
                                 field: "gsi1pk",
                                 composite: vec!["foo_string_2"],
-                            },
-                            sort_key: Key {
+                            }),
+                            sort_key: IndexKey::Sort(Key {
                                 field: "gsi1sk",
                                 composite: vec!["foo_string_1"],
-                            },
+                            }),
                         },
                     ),
                     (
                         GSI2,
                         IndexKeys {
-                            partition_key: Key {
+                            partition_key: IndexKey::Partition(Key {
                                 field: "gsi2pk",
                                 composite: vec!["foo_string_3"],
-                            },
-                            sort_key: Key {
+                            }),
+                            sort_key: IndexKey::Sort(Key {
                                 field: "gsi2sk",
-                                composite: vec!["foo_isize"],
-                            },
+                                composite: vec!["foo_string_4", "foo_string_5"],
+                            }),
                         },
                     ),
                 ]),
@@ -98,6 +102,8 @@ pub mod mocks {
                     ("foo_string_2", DynamoType::DynamoString),
                     ("foo_string_3", DynamoType::DynamoString),
                     ("foo_string_4", DynamoType::DynamoString),
+                    ("foo_string_5", DynamoType::DynamoString),
+                    ("foo_string_6", DynamoType::DynamoString),
                     ("foo_isize", DynamoType::DynamoNumber(RustType::Isize)),
                     ("foo_bool", DynamoType::DynamoBool),
                 ]),

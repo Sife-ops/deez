@@ -23,8 +23,8 @@ impl super::Deez {
             .delete_(entity)
             .condition_expression("attribute_not_exists(#pk) AND attribute_not_exists(#sk)")
             .set_expression_attribute_names(Some(HashMap::from([
-                ("#pk".to_string(), i.partition_key.0.clone()),
-                ("#sk".to_string(), i.sort_key.0.clone()),
+                ("#pk".to_string(), i.partition_key.0.to_string()),
+                ("#sk".to_string(), i.sort_key.0.to_string()),
             ])))
             .set_key(Some(HashMap::from([
                 (i.partition_key.0, AttributeValue::S(i.partition_key.1)),

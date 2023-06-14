@@ -1,5 +1,5 @@
-use crate::{deez::DeezEntity, DeezError, DeezResult};
-use bevy_reflect::GetField;
+use crate::DeezResult;
+use aws_sdk_dynamodb::types::AttributeValue;
 use std::collections::HashMap;
 
 #[derive(Debug)]
@@ -14,8 +14,8 @@ pub struct Schema {
 
 #[derive(Debug)]
 pub struct IndexKeys {
-    pub partition_key: Key,
-    pub sort_key: Key,
+    pub partition_key: IndexKey,
+    pub sort_key: IndexKey,
 }
 
 #[derive(Debug)]
@@ -25,26 +25,22 @@ pub struct IndexKeysComposed {
 }
 
 impl IndexKeys {
-    pub fn composed_index(&self, e: &impl DeezEntity) -> DeezResult<IndexKeysComposed> {
-        let a = e.schema();
+    pub fn composed_index(
+        &self,
+        m: &HashMap<String, AttributeValue>,
+        s: &Schema,
+    ) -> DeezResult<IndexKeysComposed> {
         Ok(IndexKeysComposed {
             partition_key: (
-                self.partition_key.field.to_string(),
-                format!(
-                    "${}#{}{}",
-                    a.service,
-                    a.entity,
-                    self.partition_key.composed_key(e)?
-                ),
+                self.partition_key.field(),
+                self.partition_key.composed_key(m, s)?,
             ),
-            sort_key: (
-                self.sort_key.field.to_string(),
-                format!("${}{}", a.entity, self.sort_key.composed_key(e)?),
-            ),
+            sort_key: (self.sort_key.field(), self.sort_key.composed_key(m, s)?),
         })
     }
 }
 
+// todo: f32, f64
 #[derive(Debug)]
 pub enum RustType {
     Usize,
@@ -67,96 +63,63 @@ pub enum DynamoType {
 }
 
 #[derive(Debug)]
+pub enum IndexKey {
+    Partition(Key),
+    Sort(Key),
+}
+
+#[derive(Debug)]
 pub struct Key {
     pub field: &'static str,
     pub composite: Vec<&'static str>,
 }
 
-impl Key {
-    pub fn composed_key(&self, e: &impl DeezEntity) -> DeezResult<String> {
+impl IndexKey {
+    pub fn field(&self) -> String {
+        match self {
+            IndexKey::Partition(k) => k.field.to_string(),
+            IndexKey::Sort(k) => k.field.to_string(),
+        }
+    }
+
+    pub fn composite(&self) -> Vec<&str> {
+        match self {
+            IndexKey::Partition(k) => k.composite.clone(),
+            IndexKey::Sort(k) => k.composite.clone(),
+        }
+    }
+
+    pub fn composed_key(
+        &self,
+        m: &HashMap<String, AttributeValue>,
+        s: &Schema,
+    ) -> DeezResult<String> {
         let mut a = String::new();
-        let s = e.schema();
 
-        for b in self.composite.iter() {
-            let d = s
-                .attributes
-                .get(b)
-                .ok_or(DeezError::UnknownAttribute(b.to_string()))?;
-
-            let x: String;
-            match d {
-                DynamoType::DynamoBool => return Err(DeezError::InvalidComposite),
-                DynamoType::DynamoString => {
-                    x = e
-                        .get_field::<String>(b)
-                        .ok_or(DeezError::UnknownStructField(b.to_string()))?
-                        .to_string();
-                }
-                DynamoType::DynamoNumber(rt) => match rt {
-                    RustType::Usize => {
-                        x = e
-                            .get_field::<usize>(b)
-                            .ok_or(DeezError::UnknownStructField(b.to_string()))?
-                            .to_string();
-                    }
-                    RustType::Isize => {
-                        x = e
-                            .get_field::<isize>(b)
-                            .ok_or(DeezError::UnknownStructField(b.to_string()))?
-                            .to_string();
-                    }
-                    RustType::U8 => {
-                        x = e
-                            .get_field::<u8>(b)
-                            .ok_or(DeezError::UnknownStructField(b.to_string()))?
-                            .to_string();
-                    }
-                    RustType::I8 => {
-                        x = e
-                            .get_field::<i8>(b)
-                            .ok_or(DeezError::UnknownStructField(b.to_string()))?
-                            .to_string();
-                    }
-                    RustType::U16 => {
-                        x = e
-                            .get_field::<u16>(b)
-                            .ok_or(DeezError::UnknownStructField(b.to_string()))?
-                            .to_string();
-                    }
-                    RustType::I16 => {
-                        x = e
-                            .get_field::<i16>(b)
-                            .ok_or(DeezError::UnknownStructField(b.to_string()))?
-                            .to_string();
-                    }
-                    RustType::U32 => {
-                        x = e
-                            .get_field::<u32>(b)
-                            .ok_or(DeezError::UnknownStructField(b.to_string()))?
-                            .to_string();
-                    }
-                    RustType::I32 => {
-                        x = e
-                            .get_field::<i32>(b)
-                            .ok_or(DeezError::UnknownStructField(b.to_string()))?
-                            .to_string();
-                    }
-                    RustType::U64 => {
-                        x = e
-                            .get_field::<u64>(b)
-                            .ok_or(DeezError::UnknownStructField(b.to_string()))?
-                            .to_string();
-                    }
-                    RustType::I64 => {
-                        x = e
-                            .get_field::<i64>(b)
-                            .ok_or(DeezError::UnknownStructField(b.to_string()))?
-                            .to_string();
-                    }
-                },
+        let v;
+        match self {
+            IndexKey::Partition(k) => {
+                v = k.composite.clone();
+                a.push_str(&format!("${}#{}", s.service, s.entity));
             }
+            IndexKey::Sort(k) => {
+                v = k.composite.clone();
+                a.push_str(&format!("${}", s.entity));
+            }
+        }
 
-            a.push_str(&format!("#{}_{}", b, x));
+        for b in v {
+            let d = m.get(b).unwrap();
+            let c = s.attributes.get(b).unwrap();
+            match c {
+                DynamoType::DynamoBool => panic!(),
+                DynamoType::DynamoString => {
+                    a.push_str(&format!("#{}_{}", b, d.as_s()?));
+                }
+                DynamoType::DynamoNumber(_) => {
+                    a.push_str(&format!("#{}_{}", b, d.as_n()?));
+                }
+            }
         }
 
         Ok(a)
