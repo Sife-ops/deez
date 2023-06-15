@@ -21,9 +21,12 @@ impl super::Deez {
             builder: request,
             schema: entity.schema(),
             av_map: entity.to_av_map()?,
-            exp: String::new(),
+
             exp_attr_names: HashMap::new(),
             exp_attr_values: HashMap::new(),
+            sets: Vec::new(),
+            adds: Vec::new(),
+            subtracts: Vec::new(),
         })
     }
 }
@@ -33,118 +36,171 @@ pub struct DeezUpdateBuilder {
     pub builder: UpdateItemFluentBuilder,
     pub schema: Schema,
     pub av_map: HashMap<String, AttributeValue>,
-    pub exp: String,
+
     pub exp_attr_names: HashMap<String, String>,
     pub exp_attr_values: HashMap<String, AttributeValue>,
+    pub sets: Vec<String>,
+    pub adds: Vec<String>,
+    pub subtracts: Vec<String>,
+}
+
+macro_rules! unique_exp_value_var {
+    ($self: ident, $update_key: ident) => {{
+        let matches = $self
+            .exp_attr_values
+            .iter()
+            .filter(|(x, _)| x.starts_with(&format!(":{}", $update_key)))
+            .collect::<HashMap<&String, &AttributeValue>>();
+        format!("{}_u{}", $update_key, matches.len())
+    }};
+}
+
+macro_rules! add_exp {
+    ($self: ident, $aaa: ident, $bbb: ident, $ccc: expr, $ddd: ident, $eee: expr) => {
+        let exp_value_var = unique_exp_value_var!($self, $aaa);
+        $self.$bbb.push(format!($ccc, $aaa, exp_value_var));
+        $self
+            .exp_attr_names
+            .insert(format!("#{}", $aaa), $aaa.clone());
+        $self
+            .exp_attr_values
+            .insert(format!(":{}", exp_value_var), AttributeValue::$ddd($eee));
+    };
 }
 
 macro_rules! sync_key {
-    ($index_key: expr, $update_key: ident, $self: ident) => {
+    ($self: ident, $index_key: expr, $update_key: ident) => {
         for composite in $index_key.composite() {
             if composite == $update_key {
                 let field = $index_key.field();
                 let composed = $index_key.composed_key(&$self.av_map, &$self.schema)?;
-                $self.exp.push_str(&format!(", #{} = :{}", field, field));
-                $self
-                    .exp_attr_names
-                    .insert(format!("#{}", field), field.to_string());
-                $self
-                    .exp_attr_values
-                    .insert(format!(":{}", field), AttributeValue::S(composed));
+                add_exp!($self, field, sets, "#{} = :{}", S, composed);
             }
         }
     };
 }
 
-macro_rules! unique_exp_value_var {
-    ($a: expr, $b: ident) => {{
-        let c = $a
-            .iter()
-            .filter(|(x, _)| x.starts_with(&format!(":{}", $b)))
-            .collect::<HashMap<&String, &AttributeValue>>();
-        format!("{}_u{}", $b, c.len())
-    }};
-}
-
 impl DeezUpdateBuilder {
-    // todo: set_bool, set_number
+    // todo: string-only composites?
     pub fn set_string(mut self, map: HashMap<String, String>) -> DeezResult<DeezUpdateBuilder> {
-        match self.exp.len() {
-            0 => self.exp.push_str("SET"),
-            _ => self.exp.push_str(" SET"),
-        }
-
         for (update_key, update_value) in map.iter() {
             *self.av_map.get_mut(update_key).unwrap() = AttributeValue::S(update_value.to_string());
         }
-
-        for (i, (update_key, update_value)) in map.iter().enumerate() {
-            self.exp_attr_names
-                .insert(format!("#{}", update_key), update_key.clone());
-
-            let exp_value_var = unique_exp_value_var!(self.exp_attr_values, update_key);
-
-            match i {
-                0 => self
-                    .exp
-                    .push_str(&format!(" #{} = :{}", update_key, exp_value_var)),
-                _ => self
-                    .exp
-                    .push_str(&format!(", #{} = :{}", update_key, exp_value_var)),
-            }
-
-            for (_, index_keys) in self.schema.global_secondary_indexes.iter() {
-                sync_key!(index_keys.partition_key, update_key, self);
-                sync_key!(index_keys.sort_key, update_key, self);
-            }
-
-            // todo: string-only composites
-            self.exp_attr_values.insert(
-                format!(":{}", exp_value_var),
-                AttributeValue::S(update_value.to_string()),
+        for (update_key, update_value) in map.iter() {
+            add_exp!(
+                self,
+                update_key,
+                sets,
+                "#{} = :{}",
+                S,
+                update_value.to_string()
             );
+            for (_, index_keys) in self.schema.global_secondary_indexes.iter() {
+                sync_key!(self, index_keys.partition_key, update_key);
+                sync_key!(self, index_keys.sort_key, update_key);
+            }
         }
-
         Ok(self)
     }
 
-    // todo: add_float
-    pub fn add(mut self, map: HashMap<String, u64>) -> DeezResult<DeezUpdateBuilder> {
-        match self.exp.len() {
-            0 => self.exp.push_str("ADD"),
-            _ => self.exp.push_str(" ADD"),
+    pub fn set_number(mut self, map: HashMap<String, f64>) -> DeezResult<DeezUpdateBuilder> {
+        for (update_key, update_value) in map.iter() {
+            add_exp!(
+                self,
+                update_key,
+                sets,
+                "#{} = :{}",
+                N,
+                update_value.to_string()
+            );
         }
+        Ok(self)
+    }
 
-        for (i, (update_key, update_value)) in map.iter().enumerate() {
+    pub fn set_bool(mut self, map: HashMap<String, bool>) -> DeezResult<DeezUpdateBuilder> {
+        for (update_key, update_value) in map.iter() {
+            add_exp!(self, update_key, sets, "#{} = :{}", Bool, *update_value);
+        }
+        Ok(self)
+    }
+
+    pub fn add(mut self, map: HashMap<String, f64>) -> DeezResult<DeezUpdateBuilder> {
+        for (update_key, update_value) in map.iter() {
+            add_exp!(
+                self,
+                update_key,
+                adds,
+                "#{} :{}",
+                N,
+                update_value.to_string()
+            );
+        }
+        Ok(self)
+    }
+
+    pub fn subtract(mut self, map: HashMap<String, f64>) -> DeezResult<DeezUpdateBuilder> {
+        for (update_key, update_value) in map.iter() {
+            let exp_value_var = unique_exp_value_var!(self, update_key);
+            self.subtracts.push(format!(
+                "#{} = #{} - :{}",
+                update_key, update_key, exp_value_var
+            ));
             self.exp_attr_names
                 .insert(format!("#{}", update_key), update_key.clone());
-
-            let exp_value_var = unique_exp_value_var!(self.exp_attr_values, update_key);
-
-            match i {
-                0 => self
-                    .exp
-                    .push_str(&format!(" #{} :{}", update_key, exp_value_var)),
-                _ => self
-                    .exp
-                    .push_str(&format!(", #{} :{}", update_key, exp_value_var)),
-            }
-
             self.exp_attr_values.insert(
                 format!(":{}", exp_value_var),
                 AttributeValue::N(update_value.to_string()),
             );
         }
-
         Ok(self)
     }
 
-    // todo: subtract
-    // todo: remove
-
     pub fn build(self) -> UpdateItemFluentBuilder {
+        let mut exp = String::new();
+
+        if self.sets.len() > 0 {
+            for (i, e) in self.sets.iter().enumerate() {
+                match i {
+                    0 => exp.push_str(&format!("SET {}", e)),
+                    _ => exp.push_str(&format!(", {}", e)),
+                }
+            }
+        }
+
+        if self.subtracts.len() > 0 {
+            for (i, e) in self.subtracts.iter().enumerate() {
+                match i {
+                    0 => {
+                        if exp.len() < 1 {
+                            exp.push_str(&format!("SET {}", e));
+                        } else {
+                            exp.push_str(&format!(", {}", e));
+                        }
+                    }
+                    _ => exp.push_str(&format!(", {}", e)),
+                }
+            }
+        }
+
+        if self.adds.len() > 0 {
+            match exp.len() {
+                0 => exp.push_str("ADD"),
+                _ => exp.push_str(" ADD"),
+            }
+            for (i, e) in self.adds.iter().enumerate() {
+                match i {
+                    0 => exp.push_str(&format!(" {}", e)),
+                    _ => exp.push_str(&format!(", {}", e)),
+                }
+            }
+        }
+
+        println!("{}", exp);
+        println!("{:#?}", self.exp_attr_names);
+        println!("{:#?}", self.exp_attr_values);
+
         self.builder
-            .update_expression(self.exp)
+            .update_expression(exp)
             .set_expression_attribute_names(Some(self.exp_attr_names))
             .set_expression_attribute_values(Some(self.exp_attr_values))
     }
@@ -171,16 +227,32 @@ mod tests {
                 ("foo_string_6".to_string(), "lol".to_string()),
             ]))
             .unwrap()
-            .set_string(HashMap::from([(
-                "foo_string_6".to_string(),
-                "lmao".to_string(),
-            )]))
-            .unwrap();
+            .set_string(HashMap::from([
+                // ("foo_string_6".to_string(), "lmao".to_string()),
+                ("foo_string_2".to_string(), "lmao".to_string()),
+            ]))
+            .unwrap()
+            .add(HashMap::from([
+                // ("foo_string_2".to_string(), "lmao".to_string()),
+                ("foo_isize".to_string(), 3.0),
+            ]))
+            .unwrap()
+            .add(HashMap::from([
+                // ("foo_string_2".to_string(), "lmao".to_string()),
+                ("foo_isize".to_string(), 2.0),
+            ]))
+            .unwrap()
+            .subtract(HashMap::from([
+                // ("foo_string_2".to_string(), "lmao".to_string()),
+                ("foo_isize".to_string(), 1.0),
+            ]))
+            .unwrap()
+            .build();
 
         // println!("{:#?}", u);
-        println!("{:#?}", u.exp);
-        println!("{:#?}", u.exp_attr_names);
-        println!("{:#?}", u.exp_attr_values);
+        // println!("{:#?}", u.exp);
+        // println!("{:#?}", u.exp_attr_names);
+        // println!("{:#?}", u.exp_attr_values);
 
         // assert!(
         //     u.exp == "SET #foo_string_3 = :foo_string_3_u0, #foo_string_4 = :foo_string_4_u0"
@@ -205,18 +277,3 @@ mod tests {
         // );
     }
 }
-
-// match self
-//     .schema
-//     .attributes
-//     .get(update_key.as_str())
-//     .ok_or(DeezError::UnknownAttribute(update_key.to_string()))?
-// {
-//     DynamoType::DynamoString => {
-//         self.exp_attr_values.insert(
-//             format!(":{}", exp_value_var),
-//             AttributeValue::S(update_value.to_string()),
-//         );
-//     }
-//     _ => panic!(), // todo: Err()
-// }
