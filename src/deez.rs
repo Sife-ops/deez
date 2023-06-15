@@ -138,7 +138,7 @@ mod tests {
         };
 
         let b = a.to_av_map_with_keys().unwrap();
-        // println!("{:#?}", b);
+        println!("{:#?}", b);
 
         assert_eq!(
             b["pk"],

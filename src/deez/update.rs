@@ -61,6 +61,7 @@ macro_rules! unique_exp_value_var {
 
 macro_rules! add_exp {
     ($self: ident, $aaa: ident, $bbb: ident, $ccc: expr, $ddd: ident, $eee: expr) => {
+        // todo: look up key in schema or error...
         let exp_value_var = unique_exp_value_var!($self, $aaa);
         $self.$bbb.push(format!($ccc, $aaa, exp_value_var));
         $self
@@ -84,44 +85,41 @@ macro_rules! sync_key {
     };
 }
 
-impl DeezUpdateBuilder {
-    // todo: string-only composites?
-    pub fn set_string(mut self, map: HashMap<String, String>) -> DeezResult<DeezUpdateBuilder> {
-        for (update_key, update_value) in map.iter() {
-            *self
+macro_rules! set_attr {
+    ($self: ident, $map: ident, $av_type: ident) => {
+        for (update_key, update_value) in $map.iter() {
+            *$self
                 .av_map
                 .get_mut(update_key)
                 .ok_or(DeezError::UnknownAttribute(update_key.clone()))? =
                 AttributeValue::S(update_value.to_string());
         }
-        for (update_key, update_value) in map.iter() {
+        for (update_key, update_value) in $map.iter() {
             add_exp!(
-                self,
+                $self,
                 update_key,
                 sets,
                 "#{} = :{}",
-                S,
+                $av_type,
                 update_value.to_string()
             );
-            for (_, index_keys) in self.schema.global_secondary_indexes.iter() {
-                sync_key!(self, index_keys.partition_key, update_key);
-                sync_key!(self, index_keys.sort_key, update_key);
+            for (_, index_keys) in $self.schema.global_secondary_indexes.iter() {
+                sync_key!($self, index_keys.partition_key, update_key);
+                sync_key!($self, index_keys.sort_key, update_key);
             }
         }
+    };
+}
+
+impl DeezUpdateBuilder {
+    // todo: string-only composites?
+    pub fn set_string(mut self, map: HashMap<String, String>) -> DeezResult<DeezUpdateBuilder> {
+        set_attr!(self, map, S);
         Ok(self)
     }
 
     pub fn set_number(mut self, map: HashMap<String, f64>) -> DeezResult<DeezUpdateBuilder> {
-        for (update_key, update_value) in map.iter() {
-            add_exp!(
-                self,
-                update_key,
-                sets,
-                "#{} = :{}",
-                N,
-                update_value.to_string()
-            );
-        }
+        set_attr!(self, map, N);
         Ok(self)
     }
 
@@ -239,15 +237,15 @@ mod tests {
             ]))?
             .add(HashMap::from([
                 // ("foo_string_2".to_string(), "lmao".to_string()),
-                ("foo_isize".to_string(), 3.0),
+                ("foo_f64".to_string(), 3.0),
             ]))?
             .add(HashMap::from([
                 // ("foo_string_2".to_string(), "lmao".to_string()),
-                ("foo_isize".to_string(), 2.0),
+                ("foo_f64".to_string(), 2.0),
             ]))?
             .subtract(HashMap::from([
                 // ("foo_string_2".to_string(), "lmao".to_string()),
-                ("foo_isize".to_string(), 1.0),
+                ("foo_f64".to_string(), 1.0),
             ]))?
             .build();
 

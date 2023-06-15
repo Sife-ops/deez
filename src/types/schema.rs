@@ -135,9 +135,9 @@ macro_rules! composed_key {
                 .get(b)
                 .ok_or(DeezError::UnknownAttribute(b.to_string()))?;
             match c {
-                DynamoType::DynamoBool => return Err(DeezError::InvalidComposite),
                 DynamoType::DynamoString => a.push_str(&format!("#{}_{}", b, d.as_s()?)),
                 DynamoType::DynamoNumber => a.push_str(&format!("#{}_{}", b, d.as_n()?)),
+                _ => return Err(DeezError::InvalidComposite),
             }
         }
 

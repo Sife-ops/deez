@@ -24,7 +24,7 @@ pub enum DeezError {
     FailedDowncast(String),
     #[error("unknown attribute value key: {0}")]
     UnknownAttributeValueKey(String),
-    #[error("invalid type for key composite: boolean")]
+    #[error("invalid type for key composite")]
     InvalidComposite,
 }
 
