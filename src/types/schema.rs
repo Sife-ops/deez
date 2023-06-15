@@ -112,6 +112,7 @@ impl std::fmt::Display for Index {
 
 macro_rules! composed_key {
     ($index_key: expr, $schema: expr, $av_map: expr) => {{
+        // todo: variable names
         let mut a = String::new();
 
         let v;

@@ -9,29 +9,49 @@ use aws_sdk_dynamodb::{
 use std::collections::HashMap;
 
 impl super::Deez {
-    // todo: patch
     pub fn update(&self, entity: &impl DeezEntity) -> DeezResult<DeezUpdateBuilder> {
-        let i = get_composed_index!(entity, Index::Primary);
-        let request = self
+        let primary_index = get_composed_index!(entity, Index::Primary);
+
+        let builder = self
             .client
             .update_item()
             .table_name(entity.schema().table)
             .set_key(Some(HashMap::from([
-                (i.partition_key.0, AttributeValue::S(i.partition_key.1)),
-                (i.sort_key.0, AttributeValue::S(i.sort_key.1)),
+                (
+                    primary_index.partition_key.0,
+                    AttributeValue::S(primary_index.partition_key.1),
+                ),
+                (
+                    primary_index.sort_key.0,
+                    AttributeValue::S(primary_index.sort_key.1),
+                ),
             ])));
 
         Ok(DeezUpdateBuilder {
-            builder: request,
+            builder,
             schema: entity.schema(),
             av_map: entity.to_av_map()?,
-
             exp_attr_names: HashMap::new(),
             exp_attr_values: HashMap::new(),
             sets: Vec::new(),
             adds: Vec::new(),
             subtracts: Vec::new(),
         })
+    }
+
+    pub fn patch(&self, entity: &impl DeezEntity) -> DeezResult<DeezUpdateBuilder> {
+        let primary_index = get_composed_index!(entity, Index::Primary);
+
+        let mut update = self.update(entity)?;
+        update.builder = update
+            .builder
+            .condition_expression("attribute_not_exists(#pk) AND attribute_not_exists(#sk)")
+            .set_expression_attribute_names(Some(HashMap::from([
+                ("#pk".to_string(), primary_index.partition_key.0),
+                ("#sk".to_string(), primary_index.sort_key.0),
+            ])));
+
+        Ok(update)
     }
 }
 
@@ -40,7 +60,6 @@ pub struct DeezUpdateBuilder {
     pub builder: UpdateItemFluentBuilder,
     pub schema: Schema,
     pub av_map: HashMap<String, AttributeValue>,
-
     pub exp_attr_names: HashMap<String, String>,
     pub exp_attr_values: HashMap<String, AttributeValue>,
     pub sets: Vec<String>,
@@ -49,8 +68,8 @@ pub struct DeezUpdateBuilder {
 }
 
 macro_rules! unique_exp_value_var {
-    ($self: ident, $update_key: ident) => {{
-        let matches = $self
+    ($builder: ident, $update_key: ident) => {{
+        let matches = $builder
             .exp_attr_values
             .iter()
             .filter(|(x, _)| x.starts_with(&format!(":{}", $update_key)))
@@ -59,53 +78,54 @@ macro_rules! unique_exp_value_var {
     }};
 }
 
-macro_rules! add_exp {
-    ($self: ident, $aaa: ident, $bbb: ident, $ccc: expr, $ddd: ident, $eee: expr) => {
-        // todo: look up key in schema or error...
-        let exp_value_var = unique_exp_value_var!($self, $aaa);
-        $self.$bbb.push(format!($ccc, $aaa, exp_value_var));
-        $self
-            .exp_attr_names
-            .insert(format!("#{}", $aaa), $aaa.clone());
-        $self
-            .exp_attr_values
-            .insert(format!(":{}", exp_value_var), AttributeValue::$ddd($eee));
-    };
-}
-
 macro_rules! sync_key {
-    ($self: ident, $index_key: expr, $update_key: ident) => {
+    ($builder: ident, $index_key: expr, $update_key: ident) => {
         for composite in $index_key.composite() {
             if composite == $update_key {
                 let field = $index_key.field();
-                let composed = composed_key!($index_key, $self.schema, $self.av_map);
-                add_exp!($self, field, sets, "#{} = :{}", S, composed);
+                let composed = composed_key!($index_key, $builder.schema, $builder.av_map);
+
+                let exp_value_var = unique_exp_value_var!($builder, field);
+                $builder
+                    .sets
+                    .push(format!("#{} = :{}", field, exp_value_var));
+                $builder
+                    .exp_attr_names
+                    .insert(format!("#{}", field), field.clone());
+                $builder
+                    .exp_attr_values
+                    .insert(format!(":{}", exp_value_var), AttributeValue::S(composed));
             }
         }
     };
 }
 
 macro_rules! set_attr {
-    ($self: ident, $map: ident, $av_type: ident) => {
+    ($builder: ident, $map: ident, $av_type: ident) => {
         for (update_key, update_value) in $map.iter() {
-            *$self
+            *$builder
                 .av_map
                 .get_mut(update_key)
                 .ok_or(DeezError::UnknownAttribute(update_key.clone()))? =
                 AttributeValue::S(update_value.to_string());
         }
+
         for (update_key, update_value) in $map.iter() {
-            add_exp!(
-                $self,
-                update_key,
-                sets,
-                "#{} = :{}",
-                $av_type,
-                update_value.to_string()
+            let exp_value_var = unique_exp_value_var!($builder, update_key);
+            $builder
+                .sets
+                .push(format!("#{} = :{}", update_key, exp_value_var));
+            $builder
+                .exp_attr_names
+                .insert(format!("#{}", update_key), update_key.clone());
+            $builder.exp_attr_values.insert(
+                format!(":{}", exp_value_var),
+                AttributeValue::$av_type(update_value.to_string()),
             );
-            for (_, index_keys) in $self.schema.global_secondary_indexes.iter() {
-                sync_key!($self, index_keys.partition_key, update_key);
-                sync_key!($self, index_keys.sort_key, update_key);
+
+            for (_, index_keys) in $builder.schema.global_secondary_indexes.iter() {
+                sync_key!($builder, index_keys.partition_key, update_key);
+                sync_key!($builder, index_keys.sort_key, update_key);
             }
         }
     };
@@ -125,20 +145,29 @@ impl DeezUpdateBuilder {
 
     pub fn set_bool(mut self, map: HashMap<String, bool>) -> DeezResult<DeezUpdateBuilder> {
         for (update_key, update_value) in map.iter() {
-            add_exp!(self, update_key, sets, "#{} = :{}", Bool, *update_value);
+            let exp_value_var = unique_exp_value_var!(self, update_key);
+            self.sets
+                .push(format!("#{} = :{}", update_key, exp_value_var));
+            self.exp_attr_names
+                .insert(format!("#{}", update_key), update_key.clone());
+            self.exp_attr_values.insert(
+                format!(":{}", exp_value_var),
+                AttributeValue::Bool(*update_value),
+            );
         }
         Ok(self)
     }
 
     pub fn add(mut self, map: HashMap<String, f64>) -> DeezResult<DeezUpdateBuilder> {
         for (update_key, update_value) in map.iter() {
-            add_exp!(
-                self,
-                update_key,
-                adds,
-                "#{} :{}",
-                N,
-                update_value.to_string()
+            let exp_value_var = unique_exp_value_var!(self, update_key);
+            self.adds
+                .push(format!("#{} :{}", update_key, exp_value_var));
+            self.exp_attr_names
+                .insert(format!("#{}", update_key), update_key.clone());
+            self.exp_attr_values.insert(
+                format!(":{}", exp_value_var),
+                AttributeValue::N(update_value.to_string()),
             );
         }
         Ok(self)
@@ -201,9 +230,9 @@ impl DeezUpdateBuilder {
             }
         }
 
-        println!("{}", exp);
-        println!("{:#?}", self.exp_attr_names);
-        println!("{:#?}", self.exp_attr_values);
+        // println!("{}", exp);
+        // println!("{:#?}", self.exp_attr_names);
+        // println!("{:#?}", self.exp_attr_values);
 
         self.builder
             .update_expression(exp)
@@ -215,7 +244,7 @@ impl DeezUpdateBuilder {
 #[cfg(test)]
 mod tests {
     use crate::{mocks::mocks::*, DeezResult};
-    use aws_sdk_dynamodb::types::AttributeValue;
+    // use aws_sdk_dynamodb::types::AttributeValue;
     use std::collections::HashMap;
 
     #[tokio::test]
@@ -249,7 +278,7 @@ mod tests {
             ]))?
             .build();
 
-        // println!("{:#?}", u);
+        println!("{:#?}", u);
         // println!("{:#?}", u.exp);
         // println!("{:#?}", u.exp_attr_names);
         // println!("{:#?}", u.exp_attr_values);
