@@ -127,16 +127,17 @@ macro_rules! composed_key {
         }
 
         for b in v {
-            let d = $av_map.get(b).unwrap();
-            let c = $schema.attributes.get(b).unwrap();
+            let d = $av_map
+                .get(b)
+                .ok_or(DeezError::UnknownAttribute(b.to_string()))?;
+            let c = $schema
+                .attributes
+                .get(b)
+                .ok_or(DeezError::UnknownAttribute(b.to_string()))?;
             match c {
-                DynamoType::DynamoBool => panic!(), // todo: error
-                DynamoType::DynamoString => {
-                    a.push_str(&format!("#{}_{}", b, d.as_s()?));
-                }
-                DynamoType::DynamoNumber => {
-                    a.push_str(&format!("#{}_{}", b, d.as_n()?));
-                }
+                DynamoType::DynamoBool => return Err(DeezError::InvalidComposite),
+                DynamoType::DynamoString => a.push_str(&format!("#{}_{}", b, d.as_s()?)),
+                DynamoType::DynamoNumber => a.push_str(&format!("#{}_{}", b, d.as_n()?)),
             }
         }
 

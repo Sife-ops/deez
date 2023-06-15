@@ -1,6 +1,7 @@
 use crate::deez::{DeezEntity, DeezError, DeezResult};
 use crate::types::schema::{
-    composed_key, get_composed_index, composed_index, DynamoType, Index, IndexKey, IndexKeysComposed, Schema,
+    composed_index, composed_key, get_composed_index, DynamoType, Index, IndexKey,
+    IndexKeysComposed, Schema,
 };
 use aws_sdk_dynamodb::{
     operation::update_item::builders::UpdateItemFluentBuilder, types::AttributeValue,
@@ -87,7 +88,11 @@ impl DeezUpdateBuilder {
     // todo: string-only composites?
     pub fn set_string(mut self, map: HashMap<String, String>) -> DeezResult<DeezUpdateBuilder> {
         for (update_key, update_value) in map.iter() {
-            *self.av_map.get_mut(update_key).unwrap() = AttributeValue::S(update_value.to_string());
+            *self
+                .av_map
+                .get_mut(update_key)
+                .ok_or(DeezError::UnknownAttribute(update_key.clone()))? =
+                AttributeValue::S(update_value.to_string());
         }
         for (update_key, update_value) in map.iter() {
             add_exp!(
