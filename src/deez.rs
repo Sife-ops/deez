@@ -1,6 +1,6 @@
 use crate::types::schema::IndexKeysComposed;
 use crate::DeezError;
-use crate::{DynamoType, Index, RustType, Schema};
+use crate::{DynamoType, Index, Schema};
 use aws_sdk_dynamodb::types::AttributeValue;
 use aws_sdk_dynamodb::Client;
 use std::collections::HashMap;
@@ -119,88 +119,14 @@ pub trait DeezEntity: DeezSchema + bevy_reflect::Struct {
                             .clone(),
                     )
                 }
-                DynamoType::DynamoNumber(rt) => match rt {
-                    RustType::Usize => {
-                        av = AttributeValue::N(
-                            value
-                                .downcast_ref::<usize>()
-                                .ok_or(DeezError::FailedDowncast(field_name.to_string()))?
-                                .to_string(),
-                        );
-                    }
-                    RustType::Isize => {
-                        av = AttributeValue::N(
-                            value
-                                .downcast_ref::<isize>()
-                                .ok_or(DeezError::FailedDowncast(field_name.to_string()))?
-                                .to_string(),
-                        );
-                    }
-                    RustType::U8 => {
-                        av = AttributeValue::N(
-                            value
-                                .downcast_ref::<u8>()
-                                .ok_or(DeezError::FailedDowncast(field_name.to_string()))?
-                                .to_string(),
-                        );
-                    }
-                    RustType::I8 => {
-                        av = AttributeValue::N(
-                            value
-                                .downcast_ref::<i8>()
-                                .ok_or(DeezError::FailedDowncast(field_name.to_string()))?
-                                .to_string(),
-                        );
-                    }
-                    RustType::U16 => {
-                        av = AttributeValue::N(
-                            value
-                                .downcast_ref::<u16>()
-                                .ok_or(DeezError::FailedDowncast(field_name.to_string()))?
-                                .to_string(),
-                        );
-                    }
-                    RustType::I16 => {
-                        av = AttributeValue::N(
-                            value
-                                .downcast_ref::<i16>()
-                                .ok_or(DeezError::FailedDowncast(field_name.to_string()))?
-                                .to_string(),
-                        );
-                    }
-                    RustType::U32 => {
-                        av = AttributeValue::N(
-                            value
-                                .downcast_ref::<u32>()
-                                .ok_or(DeezError::FailedDowncast(field_name.to_string()))?
-                                .to_string(),
-                        );
-                    }
-                    RustType::I32 => {
-                        av = AttributeValue::N(
-                            value
-                                .downcast_ref::<i32>()
-                                .ok_or(DeezError::FailedDowncast(field_name.to_string()))?
-                                .to_string(),
-                        );
-                    }
-                    RustType::U64 => {
-                        av = AttributeValue::N(
-                            value
-                                .downcast_ref::<u64>()
-                                .ok_or(DeezError::FailedDowncast(field_name.to_string()))?
-                                .to_string(),
-                        );
-                    }
-                    RustType::I64 => {
-                        av = AttributeValue::N(
-                            value
-                                .downcast_ref::<i64>()
-                                .ok_or(DeezError::FailedDowncast(field_name.to_string()))?
-                                .to_string(),
-                        );
-                    }
-                },
+                DynamoType::DynamoNumber => {
+                    av = AttributeValue::N(
+                        value
+                            .downcast_ref::<f64>()
+                            .ok_or(DeezError::FailedDowncast(field_name.to_string()))?
+                            .to_string(),
+                    )
+                }
             }
 
             av_map.insert(field_name.to_string(), av);
@@ -262,7 +188,7 @@ mod tests {
         assert_eq!(c.foo_string_4, "ddd".to_string());
         assert_eq!(c.foo_string_5, "eee".to_string());
         assert_eq!(c.foo_string_6, "fff".to_string());
-        assert_eq!(c.foo_isize, 69);
+        assert_eq!(c.foo_f64, 69.0);
         assert_eq!(c.foo_bool, true);
     }
 }

@@ -63,7 +63,7 @@ pub fn derive(input: TokenStream) -> TokenStream {
             // DynamoDB attribute of type Number can store 126-bit integers (or
             // 127-bit unsigned integers, with serious caveats).
             // https://docs.aws.amazon.com/amazondynamodb/latest/developerguide/HowItWorks.NamingRulesDataTypes.html#HowItWorks.DataTypes.Number
-            "usize" | "isize" | "u8" | "i8" | "u16" | "i16" | "u32" | "i32" | "u64" | "i64" => {
+            "f64" => {
                 reads = quote! {
                     #reads
                     #field_ident: m

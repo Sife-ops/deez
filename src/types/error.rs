@@ -1,5 +1,5 @@
 use aws_sdk_dynamodb::types::AttributeValue;
-use std::num::ParseIntError;
+use std::num::ParseFloatError;
 use thiserror::Error;
 
 #[derive(Error, Debug)]
@@ -7,7 +7,7 @@ pub enum DeezError {
     #[error("AttributeValue error")]
     AWSAttributeValue(#[from] AttributeValueError),
     #[error(transparent)]
-    ParseIntError(#[from] ParseIntError),
+    ParseFloatError(#[from] ParseFloatError),
     // #[error("invalid composite: {0}, must use String")]
     // InvalidComposite(String),
     #[error("unknown key: {0}")]

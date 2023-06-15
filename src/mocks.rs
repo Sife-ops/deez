@@ -6,7 +6,7 @@ pub mod mocks {
 
     use crate::{
         deez::DeezSchema, Deez, DeezEntity, DeezError, DynamoType, Index, IndexKey, IndexKeys, Key,
-        Reflect, RustType, Schema,
+        Reflect, Schema,
     };
 
     pub async fn make_mock_client() -> Client {
@@ -31,7 +31,7 @@ pub mod mocks {
         pub foo_string_4: String,
         pub foo_string_5: String,
         pub foo_string_6: String,
-        pub foo_isize: isize,
+        pub foo_f64: f64,
         pub foo_bool: bool,
     }
 
@@ -44,7 +44,7 @@ pub mod mocks {
                 foo_string_4: "".to_string(),
                 foo_string_5: "".to_string(),
                 foo_string_6: "".to_string(),
-                foo_isize: 69,
+                foo_f64: 69.0,
                 foo_bool: false,
             }
         }
@@ -104,7 +104,7 @@ pub mod mocks {
                     ("foo_string_4", DynamoType::DynamoString),
                     ("foo_string_5", DynamoType::DynamoString),
                     ("foo_string_6", DynamoType::DynamoString),
-                    ("foo_isize", DynamoType::DynamoNumber(RustType::Isize)),
+                    ("foo_f64", DynamoType::DynamoNumber),
                     ("foo_bool", DynamoType::DynamoBool),
                 ]),
             }

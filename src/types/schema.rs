@@ -40,25 +40,10 @@ impl IndexKeys {
     }
 }
 
-// todo: f32, f64
-#[derive(Debug)]
-pub enum RustType {
-    Usize,
-    Isize,
-    U8,
-    I8,
-    U16,
-    I16,
-    U32,
-    I32,
-    U64,
-    I64,
-}
-
 #[derive(Debug)]
 pub enum DynamoType {
     DynamoString,
-    DynamoNumber(RustType),
+    DynamoNumber,
     DynamoBool,
 }
 
@@ -112,11 +97,11 @@ impl IndexKey {
             let d = m.get(b).unwrap();
             let c = s.attributes.get(b).unwrap();
             match c {
-                DynamoType::DynamoBool => panic!(),
+                DynamoType::DynamoBool => panic!(), // todo: error
                 DynamoType::DynamoString => {
                     a.push_str(&format!("#{}_{}", b, d.as_s()?));
                 }
-                DynamoType::DynamoNumber(_) => {
+                DynamoType::DynamoNumber => {
                     a.push_str(&format!("#{}_{}", b, d.as_n()?));
                 }
             }
