@@ -1,6 +1,6 @@
 use crate::deez::{DeezEntity, DeezError, DeezResult};
 use crate::types::schema::{
-    ligma, lulw, sugon, DynamoType, Index, IndexKey, IndexKeysComposed, Schema,
+    composed_key, get_composed_index, composed_index, DynamoType, Index, IndexKey, IndexKeysComposed, Schema,
 };
 use aws_sdk_dynamodb::{
     operation::update_item::builders::UpdateItemFluentBuilder, types::AttributeValue,
@@ -10,7 +10,7 @@ use std::collections::HashMap;
 impl super::Deez {
     // todo: patch
     pub fn update(&self, entity: &impl DeezEntity) -> DeezResult<DeezUpdateBuilder> {
-        let i = lulw!(entity, Index::Primary);
+        let i = get_composed_index!(entity, Index::Primary);
         let request = self
             .client
             .update_item()
@@ -76,7 +76,7 @@ macro_rules! sync_key {
         for composite in $index_key.composite() {
             if composite == $update_key {
                 let field = $index_key.field();
-                let composed = ligma!($index_key, $self.schema, $self.av_map);
+                let composed = composed_key!($index_key, $self.schema, $self.av_map);
                 add_exp!($self, field, sets, "#{} = :{}", S, composed);
             }
         }

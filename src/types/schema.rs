@@ -110,7 +110,7 @@ impl std::fmt::Display for Index {
     }
 }
 
-macro_rules! ligma {
+macro_rules! composed_key {
     ($index_key: expr, $schema: expr, $av_map: expr) => {{
         let mut a = String::new();
 
@@ -143,31 +143,31 @@ macro_rules! ligma {
         a
     }};
 }
-pub(crate) use ligma;
+pub(crate) use composed_key;
 
-macro_rules! sugon {
+macro_rules! composed_index {
     ($index_keys: expr, $schema: ident, $av_map: ident) => {{
         IndexKeysComposed {
             partition_key: (
                 $index_keys.partition_key.field(),
-                ligma!($index_keys.partition_key, $schema, $av_map),
+                composed_key!($index_keys.partition_key, $schema, $av_map),
             ),
             sort_key: (
                 $index_keys.sort_key.field(),
-                ligma!($index_keys.sort_key, $schema, $av_map),
+                composed_key!($index_keys.sort_key, $schema, $av_map),
             ),
         }
     }};
 }
-pub(crate) use sugon;
+pub(crate) use composed_index;
 
-macro_rules! lulw {
+macro_rules! get_composed_index {
     ($entity: ident, $index: expr) => {{
         let av_map = $entity.to_av_map()?;
         let schema = $entity.schema();
         match $index {
-            Index::Primary => sugon!(schema.primary_index, schema, av_map),
-            _ => sugon!(
+            Index::Primary => composed_index!(schema.primary_index, schema, av_map),
+            _ => composed_index!(
                 schema
                     .global_secondary_indexes
                     .get(&$index)
@@ -178,7 +178,7 @@ macro_rules! lulw {
         }
     }};
 }
-pub(crate) use lulw;
+pub(crate) use get_composed_index;
 
 #[cfg(test)]
 mod tests {
@@ -202,11 +202,11 @@ mod tests {
         let c = a.schema();
 
         let d = c.primary_index;
-        // let e = sugon!(d, c, b);
+        // let e = composed_index!(d, c, b);
 
         // let c = b.primary_index.partition_key;
         // println!("{:#?}", e);
-        // let e = ligma!(c, b, d);
+        // let e = composed_key!(c, b, d);
         // println!("{}", e);
 
         Ok(())

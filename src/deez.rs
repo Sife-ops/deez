@@ -1,5 +1,5 @@
 use crate::types::error::DeezError;
-use crate::types::schema::{ligma, sugon, DynamoType, IndexKey, IndexKeysComposed, Schema};
+use crate::types::schema::{composed_key, composed_index, DynamoType, IndexKey, IndexKeysComposed, Schema};
 use aws_sdk_dynamodb::types::AttributeValue;
 use aws_sdk_dynamodb::Client;
 use std::collections::HashMap;
@@ -42,7 +42,7 @@ pub trait DeezEntity: DeezSchema + bevy_reflect::Struct {
         let mut m = self.to_av_map()?;
         let s = self.schema();
 
-        let b = sugon!(s.primary_index, s, m);
+        let b = composed_index!(s.primary_index, s, m);
         {
             let (c, d) = b.partition_key;
             m.insert(c.to_string(), AttributeValue::S(d));
@@ -53,7 +53,7 @@ pub trait DeezEntity: DeezSchema + bevy_reflect::Struct {
         }
 
         for (_, c) in s.global_secondary_indexes {
-            let d = sugon!(c, s, m);
+            let d = composed_index!(c, s, m);
             {
                 let (e, f) = d.partition_key;
                 m.insert(e.to_string(), AttributeValue::S(f));

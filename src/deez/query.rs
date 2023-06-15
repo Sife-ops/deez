@@ -1,12 +1,12 @@
 use crate::deez::{DeezEntity, DeezError, DeezResult};
-use crate::types::schema::{ligma, lulw, sugon, DynamoType, Index, IndexKey, IndexKeysComposed};
+use crate::types::schema::{composed_key, get_composed_index, composed_index, DynamoType, Index, IndexKey, IndexKeysComposed};
 use aws_sdk_dynamodb::operation::query::builders::QueryFluentBuilder;
 use aws_sdk_dynamodb::types::AttributeValue;
 use std::collections::HashMap;
 
 impl super::Deez {
     pub fn query(&self, index: Index, entity: &impl DeezEntity) -> DeezResult<DeezQueryBuilder> {
-        let i = lulw!(entity, index);
+        let i = get_composed_index!(entity, index);
 
         let mut builder = self.client.query().table_name(entity.schema().table);
         if index != Index::Primary {
@@ -53,7 +53,7 @@ impl DeezQueryBuilder {
     // }
 
     pub fn begins(mut self, entity: &impl DeezEntity) -> DeezResult<DeezQueryBuilder> {
-        let i = lulw!(entity, self.index);
+        let i = get_composed_index!(entity, self.index);
         *self
             .values
             .get_mut(":sk1")
@@ -68,8 +68,8 @@ impl DeezQueryBuilder {
         entity1: &impl DeezEntity,
         entity2: &impl DeezEntity,
     ) -> DeezResult<DeezQueryBuilder> {
-        let i1 = lulw!(entity1, self.index);
-        let i2 = lulw!(entity2, self.index);
+        let i1 = get_composed_index!(entity1, self.index);
+        let i2 = get_composed_index!(entity2, self.index);
         *self
             .values
             .get_mut(":sk1")
@@ -83,7 +83,7 @@ impl DeezQueryBuilder {
 
     // todo: lte
     pub fn lt(mut self, entity: &impl DeezEntity) -> DeezResult<DeezQueryBuilder> {
-        let i = lulw!(entity, self.index);
+        let i = get_composed_index!(entity, self.index);
         *self
             .values
             .get_mut(":sk1")
@@ -95,7 +95,7 @@ impl DeezQueryBuilder {
 
     // todo: gt
     pub fn gte(mut self, entity: &impl DeezEntity) -> DeezResult<DeezQueryBuilder> {
-        let i = lulw!(entity, self.index);
+        let i = get_composed_index!(entity, self.index);
         *self
             .values
             .get_mut(":sk1")
