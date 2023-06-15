@@ -1,5 +1,3 @@
-use crate::DeezResult;
-use aws_sdk_dynamodb::types::AttributeValue;
 use std::collections::HashMap;
 
 #[derive(Debug)]
@@ -22,22 +20,6 @@ pub struct IndexKeys {
 pub struct IndexKeysComposed {
     pub partition_key: (String, String),
     pub sort_key: (String, String),
-}
-
-impl IndexKeys {
-    pub fn composed_index(
-        &self,
-        m: &HashMap<String, AttributeValue>,
-        s: &Schema,
-    ) -> DeezResult<IndexKeysComposed> {
-        Ok(IndexKeysComposed {
-            partition_key: (
-                self.partition_key.field(),
-                self.partition_key.composed_key(m, s)?,
-            ),
-            sort_key: (self.sort_key.field(), self.sort_key.composed_key(m, s)?),
-        })
-    }
 }
 
 #[derive(Debug)]
@@ -72,42 +54,6 @@ impl IndexKey {
             IndexKey::Partition(k) => k.composite.clone(),
             IndexKey::Sort(k) => k.composite.clone(),
         }
-    }
-
-    pub fn composed_key(
-        &self,
-        m: &HashMap<String, AttributeValue>,
-        s: &Schema,
-    ) -> DeezResult<String> {
-        let mut a = String::new();
-
-        let v;
-        match self {
-            IndexKey::Partition(k) => {
-                v = k.composite.clone();
-                a.push_str(&format!("${}#{}", s.service, s.entity));
-            }
-            IndexKey::Sort(k) => {
-                v = k.composite.clone();
-                a.push_str(&format!("${}", s.entity));
-            }
-        }
-
-        for b in v {
-            let d = m.get(b).unwrap();
-            let c = s.attributes.get(b).unwrap();
-            match c {
-                DynamoType::DynamoBool => panic!(), // todo: error
-                DynamoType::DynamoString => {
-                    a.push_str(&format!("#{}_{}", b, d.as_s()?));
-                }
-                DynamoType::DynamoNumber => {
-                    a.push_str(&format!("#{}_{}", b, d.as_n()?));
-                }
-            }
-        }
-
-        Ok(a)
     }
 }
 
@@ -161,5 +107,108 @@ impl std::fmt::Display for Index {
             Index::Gsi19(x) => write!(f, "{}", x),
             Index::Gsi20(x) => write!(f, "{}", x),
         }
+    }
+}
+
+macro_rules! ligma {
+    ($index_key: expr, $schema: expr, $av_map: expr) => {{
+        let mut a = String::new();
+
+        let v;
+        match &$index_key {
+            IndexKey::Partition(k) => {
+                v = k.composite.clone();
+                a.push_str(&format!("${}#{}", $schema.service, $schema.entity));
+            }
+            IndexKey::Sort(k) => {
+                v = k.composite.clone();
+                a.push_str(&format!("${}", $schema.entity));
+            }
+        }
+
+        for b in v {
+            let d = $av_map.get(b).unwrap();
+            let c = $schema.attributes.get(b).unwrap();
+            match c {
+                DynamoType::DynamoBool => panic!(), // todo: error
+                DynamoType::DynamoString => {
+                    a.push_str(&format!("#{}_{}", b, d.as_s()?));
+                }
+                DynamoType::DynamoNumber => {
+                    a.push_str(&format!("#{}_{}", b, d.as_n()?));
+                }
+            }
+        }
+
+        a
+    }};
+}
+pub(crate) use ligma;
+
+macro_rules! sugon {
+    ($index_keys: expr, $schema: ident, $av_map: ident) => {{
+        IndexKeysComposed {
+            partition_key: (
+                $index_keys.partition_key.field(),
+                ligma!($index_keys.partition_key, $schema, $av_map),
+            ),
+            sort_key: (
+                $index_keys.sort_key.field(),
+                ligma!($index_keys.sort_key, $schema, $av_map),
+            ),
+        }
+    }};
+}
+pub(crate) use sugon;
+
+macro_rules! lulw {
+    ($entity: ident, $index: expr) => {{
+        let av_map = $entity.to_av_map()?;
+        let schema = $entity.schema();
+        match $index {
+            Index::Primary => sugon!(schema.primary_index, schema, av_map),
+            _ => sugon!(
+                schema
+                    .global_secondary_indexes
+                    .get(&$index)
+                    .ok_or(DeezError::UnknownSchemaIndex($index.to_string()))?,
+                schema,
+                av_map
+            ),
+        }
+    }};
+}
+pub(crate) use lulw;
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::{deez::DeezSchema, mocks::mocks::*, DeezEntity, DeezResult};
+
+    #[test]
+    fn macros() -> DeezResult<()> {
+        let a = Foo {
+            foo_string_1: "aaa".to_string(),
+            foo_string_2: "bbb".to_string(),
+            foo_string_3: "ccc".to_string(),
+            foo_string_4: "ddd".to_string(),
+            foo_string_5: "eee".to_string(),
+            foo_string_6: "fff".to_string(),
+            foo_bool: true,
+            ..Default::default()
+        };
+
+        let b = a.to_av_map()?;
+        let c = a.schema();
+
+        let d = c.primary_index;
+        // let e = sugon!(d, c, b);
+
+        // let c = b.primary_index.partition_key;
+        // println!("{:#?}", e);
+        // let e = ligma!(c, b, d);
+        // println!("{}", e);
+
+        Ok(())
     }
 }

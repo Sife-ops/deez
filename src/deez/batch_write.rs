@@ -1,4 +1,6 @@
-use crate::{DeezEntity, DeezResult, Index};
+use crate::deez::{DeezEntity, DeezResult};
+use crate::types::error::DeezError;
+use crate::types::schema::{ligma, lulw, sugon, DynamoType, Index, IndexKey, IndexKeysComposed};
 use aws_sdk_dynamodb::operation::batch_write_item::builders::BatchWriteItemFluentBuilder;
 use aws_sdk_dynamodb::types::{AttributeValue, DeleteRequest, PutRequest, WriteRequest};
 use aws_sdk_dynamodb::Client;
@@ -45,7 +47,7 @@ impl<'a> DeezBatchWriteBuilder<'a> {
         entities: Vec<&T>,
     ) -> DeezResult<DeezBatchWriteBuilder<'a>> {
         for entity in entities.iter() {
-            let a = entity.get_composed_index(&Index::Primary)?;
+            let a = lulw!(entity, Index::Primary);
             let request = WriteRequest::builder()
                 .delete_request(
                     DeleteRequest::builder()

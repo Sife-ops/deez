@@ -1,6 +1,5 @@
-use crate::types::schema::IndexKeysComposed;
-use crate::DeezError;
-use crate::{DynamoType, Index, Schema};
+use crate::types::error::DeezError;
+use crate::types::schema::{ligma, sugon, DynamoType, IndexKey, IndexKeysComposed, Schema};
 use aws_sdk_dynamodb::types::AttributeValue;
 use aws_sdk_dynamodb::Client;
 use std::collections::HashMap;
@@ -43,7 +42,7 @@ pub trait DeezEntity: DeezSchema + bevy_reflect::Struct {
         let mut m = self.to_av_map()?;
         let s = self.schema();
 
-        let b = s.primary_index.composed_index(&m, &s)?;
+        let b = sugon!(s.primary_index, s, m);
         {
             let (c, d) = b.partition_key;
             m.insert(c.to_string(), AttributeValue::S(d));
@@ -54,7 +53,7 @@ pub trait DeezEntity: DeezSchema + bevy_reflect::Struct {
         }
 
         for (_, c) in s.global_secondary_indexes {
-            let d = c.composed_index(&m, &self.schema())?;
+            let d = sugon!(c, s, m);
             {
                 let (e, f) = d.partition_key;
                 m.insert(e.to_string(), AttributeValue::S(f));
@@ -66,22 +65,6 @@ pub trait DeezEntity: DeezSchema + bevy_reflect::Struct {
         }
 
         Ok(m)
-    }
-
-    fn get_composed_index(&self, i: &Index) -> DeezResult<IndexKeysComposed>
-    where
-        Self: Sized,
-    {
-        let m = self.to_av_map()?;
-        let schema = self.schema();
-        match i {
-            Index::Primary => Ok(schema.primary_index.composed_index(&m, &schema)?),
-            _ => Ok(schema
-                .global_secondary_indexes
-                .get(i)
-                .ok_or(DeezError::UnknownSchemaIndex(i.to_string()))?
-                .composed_index(&m, &schema)?),
-        }
     }
 
     fn from_av_map(m: &HashMap<String, AttributeValue>) -> DeezResult<Self>

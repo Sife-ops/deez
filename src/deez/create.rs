@@ -1,11 +1,12 @@
-use crate::{DeezEntity, DeezResult, Index};
+use crate::deez::{DeezEntity, DeezError, DeezResult};
+use crate::types::schema::{ligma, lulw, sugon, DynamoType, Index, IndexKey, IndexKeysComposed};
 use aws_sdk_dynamodb::operation::put_item::builders::PutItemFluentBuilder;
 use std::collections::HashMap;
 
 impl super::Deez {
     pub fn create(&self, entity: &impl DeezEntity) -> DeezResult<PutItemFluentBuilder> {
         let av_map = entity.to_av_map_with_keys()?;
-        let primary_index = entity.get_composed_index(&Index::Primary)?;
+        let primary_index = lulw!(entity, Index::Primary);
 
         Ok(self
             .client

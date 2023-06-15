@@ -1,4 +1,5 @@
-use crate::{DeezEntity, DeezResult, Index};
+use crate::deez::{DeezEntity, DeezError, DeezResult};
+use crate::types::schema::{ligma, lulw, sugon, DynamoType, Index, IndexKey, IndexKeysComposed};
 use aws_sdk_dynamodb::{
     operation::delete_item::builders::DeleteItemFluentBuilder, types::AttributeValue,
 };
@@ -10,7 +11,7 @@ impl super::Deez {
     }
 
     pub fn delete(&self, entity: &impl DeezEntity) -> DeezResult<DeleteItemFluentBuilder> {
-        let i = entity.get_composed_index(&Index::Primary)?;
+        let i = lulw!(entity, Index::Primary);
         Ok(self.delete_(entity).set_key(Some(HashMap::from([
             (i.partition_key.0, AttributeValue::S(i.partition_key.1)),
             (i.sort_key.0, AttributeValue::S(i.sort_key.1)),
@@ -18,7 +19,7 @@ impl super::Deez {
     }
 
     pub fn remove(&self, entity: &impl DeezEntity) -> DeezResult<DeleteItemFluentBuilder> {
-        let i = entity.get_composed_index(&Index::Primary)?;
+        let i = lulw!(entity, Index::Primary);
         Ok(self
             .delete_(entity)
             .condition_expression("attribute_not_exists(#pk) AND attribute_not_exists(#sk)")

@@ -1,4 +1,7 @@
-use crate::{DeezEntity, DeezError, DeezResult, DynamoType, Index, Schema};
+use crate::deez::{DeezEntity, DeezError, DeezResult};
+use crate::types::schema::{
+    ligma, lulw, sugon, DynamoType, Index, IndexKey, IndexKeysComposed, Schema,
+};
 use aws_sdk_dynamodb::{
     operation::update_item::builders::UpdateItemFluentBuilder, types::AttributeValue,
 };
@@ -7,7 +10,7 @@ use std::collections::HashMap;
 impl super::Deez {
     // todo: patch
     pub fn update(&self, entity: &impl DeezEntity) -> DeezResult<DeezUpdateBuilder> {
-        let i = entity.get_composed_index(&Index::Primary)?;
+        let i = lulw!(entity, Index::Primary);
         let request = self
             .client
             .update_item()
@@ -73,7 +76,7 @@ macro_rules! sync_key {
         for composite in $index_key.composite() {
             if composite == $update_key {
                 let field = $index_key.field();
-                let composed = $index_key.composed_key(&$self.av_map, &$self.schema)?;
+                let composed = ligma!($index_key, $self.schema, $self.av_map);
                 add_exp!($self, field, sets, "#{} = :{}", S, composed);
             }
         }
@@ -208,45 +211,39 @@ impl DeezUpdateBuilder {
 
 #[cfg(test)]
 mod tests {
-    use crate::mocks::mocks::*;
+    use crate::{mocks::mocks::*, DeezResult};
     use aws_sdk_dynamodb::types::AttributeValue;
     use std::collections::HashMap;
 
     #[tokio::test]
-    async fn update_builder() {
+    async fn update_builder() -> DeezResult<()> {
         let d = make_mock_deez().await;
 
         let u = d
             .update(&Foo {
                 foo_string_1: "aaa".to_string(),
                 ..Default::default()
-            })
-            .unwrap()
+            })?
             .set_string(HashMap::from([
                 ("foo_string_2".to_string(), "rofl".to_string()),
                 ("foo_string_6".to_string(), "lol".to_string()),
-            ]))
-            .unwrap()
+            ]))?
             .set_string(HashMap::from([
                 // ("foo_string_6".to_string(), "lmao".to_string()),
                 ("foo_string_2".to_string(), "lmao".to_string()),
-            ]))
-            .unwrap()
+            ]))?
             .add(HashMap::from([
                 // ("foo_string_2".to_string(), "lmao".to_string()),
                 ("foo_isize".to_string(), 3.0),
-            ]))
-            .unwrap()
+            ]))?
             .add(HashMap::from([
                 // ("foo_string_2".to_string(), "lmao".to_string()),
                 ("foo_isize".to_string(), 2.0),
-            ]))
-            .unwrap()
+            ]))?
             .subtract(HashMap::from([
                 // ("foo_string_2".to_string(), "lmao".to_string()),
                 ("foo_isize".to_string(), 1.0),
-            ]))
-            .unwrap()
+            ]))?
             .build();
 
         // println!("{:#?}", u);
@@ -275,5 +272,7 @@ mod tests {
         //     u.exp_attr_values.get(":foo_string_4_u0").unwrap(),
         //     &AttributeValue::S("ddd".to_string())
         // );
+
+        Ok(())
     }
 }
