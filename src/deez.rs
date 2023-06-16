@@ -26,8 +26,9 @@ mod query;
 
 mod update;
 
+mod batch_get;
+
 // todo: scan
-// todo: batch get
 
 pub trait DeezSchema {
     fn schema(&self) -> Schema;
