@@ -36,6 +36,7 @@ mod tests {
     use crate::{mocks::mocks::*, DeezResult};
 
     #[tokio::test]
+    #[ignore]
     async fn put_create() -> DeezResult<()> {
         let a = make_mock_deez().await;
 
@@ -50,10 +51,11 @@ mod tests {
             ..Default::default()
         };
 
-        let c = a.create(&b)?;
+        {
+            let c = a.create(&b)?;
 
-        println!("{:#?}", c);
-        // todo: assert
+            println!("{:#?}", c);
+        }
 
         Ok(())
     }

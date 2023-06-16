@@ -1,5 +1,8 @@
 use crate::deez::{DeezEntity, DeezError, DeezResult};
-use crate::types::schema::{composed_key, get_composed_index, composed_index, DynamoType, Index, IndexKey, IndexKeysComposed};
+use crate::types::schema::{
+    composed_index, composed_key, get_composed_index, DynamoType, Index, IndexKey,
+    IndexKeysComposed,
+};
 use aws_sdk_dynamodb::operation::query::builders::QueryFluentBuilder;
 use aws_sdk_dynamodb::types::AttributeValue;
 use std::collections::HashMap;
@@ -41,17 +44,8 @@ pub struct DeezQueryBuilder {
 }
 
 // todo: `where` clause
+// todo: FilterExpression
 impl DeezQueryBuilder {
-    // fn set_sk1(
-    //     &self,
-    //     m: &mut HashMap<String, AttributeValue>,
-    //     v: AttributeValue,
-    // ) -> DeezResult<()> {
-    //     *m.get_mut(":sk1")
-    //         .ok_or(DeezError::MapKey(":sk1".to_string()))? = v;
-    //     Ok(())
-    // }
-
     pub fn begins(mut self, entity: &impl DeezEntity) -> DeezResult<DeezQueryBuilder> {
         let i = get_composed_index!(entity, self.index);
         *self
@@ -62,7 +56,6 @@ impl DeezQueryBuilder {
         Ok(self)
     }
 
-    // todo: FilterExpression
     pub fn between(
         mut self,
         entity1: &impl DeezEntity,

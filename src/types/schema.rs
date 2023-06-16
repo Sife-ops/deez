@@ -112,37 +112,40 @@ impl std::fmt::Display for Index {
 
 macro_rules! composed_key {
     ($index_key: expr, $schema: expr, $av_map: expr) => {{
-        // todo: variable names
-        let mut a = String::new();
+        let mut composed = String::new();
 
-        let v;
+        let composites;
         match &$index_key {
-            IndexKey::Partition(k) => {
-                v = k.composite.clone();
-                a.push_str(&format!("${}#{}", $schema.service, $schema.entity));
+            IndexKey::Partition(key) => {
+                composites = key.composite.clone();
+                composed.push_str(&format!("${}#{}", $schema.service, $schema.entity));
             }
-            IndexKey::Sort(k) => {
-                v = k.composite.clone();
-                a.push_str(&format!("${}", $schema.entity));
+            IndexKey::Sort(key) => {
+                composites = key.composite.clone();
+                composed.push_str(&format!("${}", $schema.entity));
             }
         }
 
-        for b in v {
-            let d = $av_map
-                .get(b)
-                .ok_or(DeezError::UnknownAttribute(b.to_string()))?;
-            let c = $schema
+        for composite in composites {
+            let av = $av_map
+                .get(composite)
+                .ok_or(DeezError::UnknownAttribute(composite.to_string()))?;
+            let dt = $schema
                 .attributes
-                .get(b)
-                .ok_or(DeezError::UnknownAttribute(b.to_string()))?;
-            match c {
-                DynamoType::DynamoString => a.push_str(&format!("#{}_{}", b, d.as_s()?)),
-                DynamoType::DynamoNumber => a.push_str(&format!("#{}_{}", b, d.as_n()?)),
+                .get(composite)
+                .ok_or(DeezError::UnknownAttribute(composite.to_string()))?;
+            match dt {
+                DynamoType::DynamoString => {
+                    composed.push_str(&format!("#{}_{}", composite, av.as_s()?))
+                }
+                DynamoType::DynamoNumber => {
+                    composed.push_str(&format!("#{}_{}", composite, av.as_n()?))
+                }
                 _ => return Err(DeezError::InvalidComposite),
             }
         }
 
-        a
+        composed
     }};
 }
 pub(crate) use composed_key;
@@ -181,36 +184,3 @@ macro_rules! get_composed_index {
     }};
 }
 pub(crate) use get_composed_index;
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use crate::{deez::DeezSchema, mocks::mocks::*, DeezEntity, DeezResult};
-
-    #[test]
-    fn macros() -> DeezResult<()> {
-        let a = Foo {
-            foo_string_1: "aaa".to_string(),
-            foo_string_2: "bbb".to_string(),
-            foo_string_3: "ccc".to_string(),
-            foo_string_4: "ddd".to_string(),
-            foo_string_5: "eee".to_string(),
-            foo_string_6: "fff".to_string(),
-            foo_bool: true,
-            ..Default::default()
-        };
-
-        let b = a.to_av_map()?;
-        let c = a.schema();
-
-        let d = c.primary_index;
-        // let e = composed_index!(d, c, b);
-
-        // let c = b.primary_index.partition_key;
-        // println!("{:#?}", e);
-        // let e = composed_key!(c, b, d);
-        // println!("{}", e);
-
-        Ok(())
-    }
-}

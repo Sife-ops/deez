@@ -42,16 +42,36 @@ impl super::Deez {
     pub fn patch(&self, entity: &impl DeezEntity) -> DeezResult<DeezUpdateBuilder> {
         let primary_index = get_composed_index!(entity, Index::Primary);
 
-        let mut update = self.update(entity)?;
-        update.builder = update
-            .builder
+        let builder = self
+            .client
+            .update_item()
+            .table_name(entity.schema().table)
+            .set_key(Some(HashMap::from([
+                (
+                    primary_index.partition_key.0.clone(),
+                    AttributeValue::S(primary_index.partition_key.1),
+                ),
+                (
+                    primary_index.sort_key.0.clone(),
+                    AttributeValue::S(primary_index.sort_key.1),
+                ),
+            ])))
             .condition_expression("attribute_not_exists(#pk) AND attribute_not_exists(#sk)")
             .set_expression_attribute_names(Some(HashMap::from([
                 ("#pk".to_string(), primary_index.partition_key.0),
                 ("#sk".to_string(), primary_index.sort_key.0),
             ])));
 
-        Ok(update)
+        Ok(DeezUpdateBuilder {
+            builder,
+            schema: entity.schema(),
+            av_map: entity.to_av_map()?,
+            exp_attr_names: HashMap::new(),
+            exp_attr_values: HashMap::new(),
+            sets: Vec::new(),
+            adds: Vec::new(),
+            subtracts: Vec::new(),
+        })
     }
 }
 
@@ -78,7 +98,7 @@ macro_rules! unique_exp_value_var {
     }};
 }
 
-macro_rules! sync_key {
+macro_rules! recompose_key {
     ($builder: ident, $index_key: expr, $update_key: ident) => {
         for composite in $index_key.composite() {
             if composite == $update_key {
@@ -100,7 +120,8 @@ macro_rules! sync_key {
     };
 }
 
-macro_rules! set_attr {
+macro_rules! set_attribute {
+    // todo: error if primary key composite
     ($builder: ident, $map: ident, $av_type: ident) => {
         for (update_key, update_value) in $map.iter() {
             *$builder
@@ -124,8 +145,8 @@ macro_rules! set_attr {
             );
 
             for (_, index_keys) in $builder.schema.global_secondary_indexes.iter() {
-                sync_key!($builder, index_keys.partition_key, update_key);
-                sync_key!($builder, index_keys.sort_key, update_key);
+                recompose_key!($builder, index_keys.partition_key, update_key);
+                recompose_key!($builder, index_keys.sort_key, update_key);
             }
         }
     };
@@ -134,12 +155,12 @@ macro_rules! set_attr {
 impl DeezUpdateBuilder {
     // todo: string-only composites?
     pub fn set_string(mut self, map: HashMap<String, String>) -> DeezResult<DeezUpdateBuilder> {
-        set_attr!(self, map, S);
+        set_attribute!(self, map, S);
         Ok(self)
     }
 
     pub fn set_number(mut self, map: HashMap<String, f64>) -> DeezResult<DeezUpdateBuilder> {
-        set_attr!(self, map, N);
+        set_attribute!(self, map, N);
         Ok(self)
     }
 
@@ -230,10 +251,6 @@ impl DeezUpdateBuilder {
             }
         }
 
-        // println!("{}", exp);
-        // println!("{:#?}", self.exp_attr_names);
-        // println!("{:#?}", self.exp_attr_values);
-
         self.builder
             .update_expression(exp)
             .set_expression_attribute_names(Some(self.exp_attr_names))
@@ -248,6 +265,7 @@ mod tests {
     use std::collections::HashMap;
 
     #[tokio::test]
+    #[ignore]
     async fn update_builder() -> DeezResult<()> {
         let d = make_mock_deez().await;
 

@@ -28,7 +28,6 @@ mod update;
 
 // todo: scan
 // todo: batch get
-// todo: patch
 
 pub trait DeezSchema {
     fn schema(&self) -> Schema;
