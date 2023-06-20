@@ -55,19 +55,19 @@ async fn create() {
         .await
         .unwrap();
 
-    let fff: FooItems = q.items().unwrap().into();
-    let ffff = fff.0.first().unwrap();
+    let i = FooItems::from(q.items().unwrap()).items();
+    let ii = i.first().unwrap();
 
-    println!("{:#?}", ffff);
+    println!("{:#?}", ii);
 
-    assert_eq!(ffff.foo_string_1, "aaa");
-    assert_eq!(ffff.foo_string_2, "bbb");
-    assert_eq!(ffff.foo_string_3, "ccc");
-    assert_eq!(ffff.foo_string_4, "ddd");
-    assert_eq!(ffff.foo_string_5, "eee");
-    assert_eq!(ffff.foo_string_6, "");
-    assert_eq!(ffff.foo_num1, 69.0);
-    assert_eq!(ffff.foo_bool1, true);
+    assert_eq!(ii.foo_string_1, "aaa");
+    assert_eq!(ii.foo_string_2, "bbb");
+    assert_eq!(ii.foo_string_3, "ccc");
+    assert_eq!(ii.foo_string_4, "ddd");
+    assert_eq!(ii.foo_string_5, "eee");
+    assert_eq!(ii.foo_string_6, "");
+    assert_eq!(ii.foo_num1, 69.0);
+    assert_eq!(ii.foo_bool1, true);
 }
 
 // #[tokio::test]

@@ -136,16 +136,16 @@ mod tests {
 
         assert_eq!(b["gsi2sk"], AttributeValue::S("$foo_entity".to_string()));
 
-        let c: Foo = b.into();
-        println!("{:#?}", c);
+        // let c: Foo = b.into();
+        // println!("{:#?}", c);
 
-        assert_eq!(c.foo_string_1, "aaa".to_string());
-        assert_eq!(c.foo_string_2, "bbb".to_string());
-        assert_eq!(c.foo_string_3, "ccc".to_string());
-        assert_eq!(c.foo_string_4, "ddd".to_string());
-        assert_eq!(c.foo_string_5, "eee".to_string());
-        assert_eq!(c.foo_string_6, "".to_string());
-        assert_eq!(c.foo_num1, 69.0);
-        assert_eq!(c.foo_bool1, true);
+        // assert_eq!(c.foo_string_1, "aaa".to_string());
+        // assert_eq!(c.foo_string_2, "bbb".to_string());
+        // assert_eq!(c.foo_string_3, "ccc".to_string());
+        // assert_eq!(c.foo_string_4, "ddd".to_string());
+        // assert_eq!(c.foo_string_5, "eee".to_string());
+        // assert_eq!(c.foo_string_6, "".to_string());
+        // assert_eq!(c.foo_num1, 69.0);
+        // assert_eq!(c.foo_bool1, true);
     }
 }

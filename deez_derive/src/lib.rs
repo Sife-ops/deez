@@ -188,24 +188,26 @@ pub fn derive(input: TokenStream) -> TokenStream {
         };
     }
 
-    let uses = quote! {
+    let table = s.table;
+    let response_items = format_ident!("{}Items", ident);
+
+    let out = quote! {
         // use deez::{Index, Key, IndexKey, IndexKeys};
         use aws_sdk_dynamodb::types::AttributeValue;
         use std::collections::HashMap;
-    };
 
-    let table = s.table;
-    let impl_self = quote! {
         impl #ident {
             pub fn table(&self) -> String {
                 #table.to_string()
             }
+
             pub fn index_key(&self, index: Index, key: Key) -> IndexKey<String> {
                 match index {
                     #index_key_match
                     _ => panic!("unknown entity index: {}", index), // todo: sus
                 }
             }
+
             pub fn index_key_av(&self, index: Index, key: Key) -> IndexKey<AttributeValue> {
                 let k = self.index_key(index, key);
                 IndexKey {
@@ -213,12 +215,14 @@ pub fn derive(input: TokenStream) -> TokenStream {
                     composite: AttributeValue::S(k.composite),
                 }
             }
+
             pub fn index_keys(&self, index: Index) -> IndexKeys<String> {
                 match index {
                     #index_keys_match
                     _ => panic!("unknown entity index: {}", index),
                 }
             }
+
             pub fn index_keys_av(&self, index: Index) -> IndexKeys<AttributeValue> {
                 let k = self.index_keys(index);
                 IndexKeys {
@@ -233,10 +237,7 @@ pub fn derive(input: TokenStream) -> TokenStream {
                 }
             }
         }
-    };
 
-    let response_items = format_ident!("{}Items", ident);
-    let impl_from = quote! {
         impl From<#ident> for HashMap<String, AttributeValue> {
             fn from(item: #ident) -> HashMap<String, AttributeValue> {
                 let mut m: HashMap<String, AttributeValue> = HashMap::new();
@@ -246,15 +247,15 @@ pub fn derive(input: TokenStream) -> TokenStream {
             }
         }
 
-        // todo: delete?
-        impl From<HashMap<String, AttributeValue>> for #ident {
-            fn from(item: HashMap<String, AttributeValue>) -> #ident {
-                #ident {
-                    #field_reads
-                    ..Default::default()
-                }
-            }
-        }
+        // // todo: delete?
+        // impl From<HashMap<String, AttributeValue>> for #ident {
+        //     fn from(item: HashMap<String, AttributeValue>) -> #ident {
+        //         #ident {
+        //             #field_reads
+        //             ..Default::default()
+        //         }
+        //     }
+        // }
 
         impl From<&HashMap<String, AttributeValue>> for #ident {
             fn from(item: &HashMap<String, AttributeValue>) -> #ident {
@@ -265,27 +266,43 @@ pub fn derive(input: TokenStream) -> TokenStream {
             }
         }
 
+        // todo: makes no sense why this doesn't work
+        // #[derive(Debug)]
+        // pub struct #response_items {
+        //     pub items: Vec<#ident>,
+        // };
+
+        // impl From<&[HashMap<String, AttributeValue>]> for #response_items {
+        //     fn from(item: &[HashMap<String, AttributeValue>]) -> #response_items {
+        //         let mut items: Vec<#ident> = Vec::new();
+        //         for i in item {
+        //             items.push(i.into());
+        //         }
+        //         #response_items{items}
+        //     }
+        // }
+
         #[derive(Debug)]
         pub struct #response_items(pub Vec<#ident>);
 
         impl From<&[HashMap<String, AttributeValue>]> for #response_items {
             fn from(item: &[HashMap<String, AttributeValue>]) -> #response_items {
-                let mut v: Vec<#ident> = Vec::new();
+                let mut items: Vec<#ident> = Vec::new();
                 for i in item {
-                    v.push(i.into());
+                    items.push(i.into());
                 }
-                #response_items(v)
+                #response_items(items)
+            }
+        }
+
+        impl #response_items {
+            pub fn items(self) -> Vec<#ident> {
+                self.0
             }
         }
     };
 
-    let o = quote! {
-        #uses
-        #impl_self
-        #impl_from
-    };
-
-    o.into()
+    out.into()
 }
 
 ////////////////////////////////////////////////////////////////////////////////
