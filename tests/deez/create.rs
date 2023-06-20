@@ -1,8 +1,7 @@
 use deez::*;
 use std::collections::HashMap;
-// use std::sync::Arc;
 
-use super::super::schemas::foo::{init, Foo};
+use super::super::schemas::foo::{init, Foo, FooItems};
 use super::super::schemas::make_client;
 
 #[tokio::test]
@@ -39,48 +38,36 @@ async fn create() {
         .await
         .unwrap();
 
-    c.query()
+    let ff = f.index_keys_av(Index::Primary);
+    let q = c
+        .query()
         .table_name(f.table())
         .key_condition_expression("#pk = :pk and begins_with(#sk, :sk)")
         .set_expression_attribute_names(Some(HashMap::from([
-            (
-                "#pk".to_string(),
-                f.index_key(Index::Primary, Key::Hash).field,
-            ),
-            (
-                "#sk".to_string(),
-                f.index_key(Index::Primary, Key::Range).field,
-            ),
+            ("#pk".to_string(), ff.hash.field),
+            ("#sk".to_string(), ff.range.field),
         ])))
-        // .set_expression_attribute_values(Some(HashMap::from([
-        //     (":pk".to_string(), f.index_key(Index::Primary, Key::Hash).composite)
-        // ])))
-        ;
+        .set_expression_attribute_values(Some(HashMap::from([
+            (":pk".to_string(), ff.hash.composite),
+            (":sk".to_string(), ff.range.composite),
+        ])))
+        .send()
+        .await
+        .unwrap();
 
-    // let r = d
-    //     .query(
-    //         PRIMARY,
-    //         &Foo {
-    //             foo_string_1: "foo".to_string(),
-    //             ..Default::default()
-    //         },
-    //     )
-    //     .unwrap()
-    //     .build()
-    //     .send()
-    //     .await
-    //     .unwrap();
+    let fff: FooItems = q.items().unwrap().into();
+    let ffff = fff.0.first().unwrap();
 
-    // let rr = Foo::from_av_map_slice(r.items().unwrap()).unwrap();
-    // let rrr = rr.first().unwrap();
-    // // println!("{:#?}", rrr);
+    println!("{:#?}", ffff);
 
-    // assert_eq!(rrr.foo_string_1, "foo");
-    // assert_eq!(rrr.foo_string_2, "bar");
-    // assert_eq!(rrr.foo_string_3, "baz");
-    // assert_eq!(rrr.foo_string_4, "fooz");
-    // assert_eq!(rrr.foo_usize, 33);
-    // assert_eq!(rrr.foo_bool, false);
+    assert_eq!(ffff.foo_string_1, "aaa");
+    assert_eq!(ffff.foo_string_2, "bbb");
+    assert_eq!(ffff.foo_string_3, "ccc");
+    assert_eq!(ffff.foo_string_4, "ddd");
+    assert_eq!(ffff.foo_string_5, "eee");
+    assert_eq!(ffff.foo_string_6, "");
+    assert_eq!(ffff.foo_num1, 69.0);
+    assert_eq!(ffff.foo_bool1, true);
 }
 
 // #[tokio::test]

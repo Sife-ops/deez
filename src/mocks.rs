@@ -1,3 +1,4 @@
+#[allow(unused)]
 #[cfg(test)]
 pub mod mocks {
     use crate::*;

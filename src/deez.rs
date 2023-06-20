@@ -1,13 +1,16 @@
+// use std::collections::HashMap;
+// use aws_sdk_dynamodb::types::AttributeValue;
+
 #[derive(Debug)]
-pub struct IndexKeys {
-    pub hash: IndexKey,
-    pub range: IndexKey,
+pub struct IndexKeys<T> {
+    pub hash: IndexKey<T>,
+    pub range: IndexKey<T>,
 }
 
 #[derive(Debug)]
-pub struct IndexKey {
+pub struct IndexKey<T> {
     pub field: String,
-    pub composite: String,
+    pub composite: T,
 }
 
 #[derive(Eq, Hash, PartialEq, Debug)]
@@ -15,6 +18,22 @@ pub enum Key {
     Hash,
     Range,
 }
+
+// pub struct Itemz<T>(pub Vec<T>);
+// struct Foo;
+// impl From<&[HashMap<String, AttributeValue>]> for Itemz<Foo> {
+//     fn from(item: &[HashMap<String, AttributeValue>]) -> Itemz<Foo> {
+//         let mut v: Vec<Foo> = Vec::new();
+//         // for a in item {
+//         //     v.push(a.into());
+//         // }
+//         // #ident {
+//         //     #field_reads
+//         //     ..Default::default()
+//         // }
+//         Itemz(Vec::new())
+//     }
+// }
 
 #[derive(Eq, Hash, PartialEq, Debug)]
 pub enum Index {

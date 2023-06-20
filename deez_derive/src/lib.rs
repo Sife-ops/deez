@@ -200,24 +200,42 @@ pub fn derive(input: TokenStream) -> TokenStream {
             pub fn table(&self) -> String {
                 #table.to_string()
             }
-            pub fn index_key(&self, index: Index, key: Key) -> IndexKey {
+            pub fn index_key(&self, index: Index, key: Key) -> IndexKey<String> {
                 match index {
                     #index_key_match
                     _ => panic!("unknown entity index: {}", index), // todo: sus
                 }
             }
-            // pub fn index_key_av(&self, index: Index, key: Key) -> AttributeValue {
-            //     AttributeValue::S(self.index_key(index, key))
-            // }
-            pub fn index_keys(&self, index: Index) -> IndexKeys {
+            pub fn index_key_av(&self, index: Index, key: Key) -> IndexKey<AttributeValue> {
+                let k = self.index_key(index, key);
+                IndexKey {
+                    field: k.field,
+                    composite: AttributeValue::S(k.composite),
+                }
+            }
+            pub fn index_keys(&self, index: Index) -> IndexKeys<String> {
                 match index {
                     #index_keys_match
                     _ => panic!("unknown entity index: {}", index),
                 }
             }
+            pub fn index_keys_av(&self, index: Index) -> IndexKeys<AttributeValue> {
+                let k = self.index_keys(index);
+                IndexKeys {
+                    hash: IndexKey {
+                        field: k.hash.field,
+                        composite: AttributeValue::S(k.hash.composite),
+                    },
+                    range: IndexKey {
+                        field: k.range.field,
+                        composite: AttributeValue::S(k.range.composite),
+                    }
+                }
+            }
         }
     };
 
+    let response_items = format_ident!("{}Items", ident);
     let impl_from = quote! {
         impl From<#ident> for HashMap<String, AttributeValue> {
             fn from(item: #ident) -> HashMap<String, AttributeValue> {
@@ -227,12 +245,36 @@ pub fn derive(input: TokenStream) -> TokenStream {
                 m
             }
         }
+
+        // todo: delete?
         impl From<HashMap<String, AttributeValue>> for #ident {
             fn from(item: HashMap<String, AttributeValue>) -> #ident {
                 #ident {
                     #field_reads
                     ..Default::default()
                 }
+            }
+        }
+
+        impl From<&HashMap<String, AttributeValue>> for #ident {
+            fn from(item: &HashMap<String, AttributeValue>) -> #ident {
+                #ident {
+                    #field_reads
+                    ..Default::default()
+                }
+            }
+        }
+
+        #[derive(Debug)]
+        pub struct #response_items(pub Vec<#ident>);
+
+        impl From<&[HashMap<String, AttributeValue>]> for #response_items {
+            fn from(item: &[HashMap<String, AttributeValue>]) -> #response_items {
+                let mut v: Vec<#ident> = Vec::new();
+                for i in item {
+                    v.push(i.into());
+                }
+                #response_items(v)
             }
         }
     };
