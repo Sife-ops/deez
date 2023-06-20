@@ -18,7 +18,7 @@ pub struct IndexKeys {
 
 #[derive(Debug)]
 pub struct IndexKeysComposed {
-    pub partition_key: (String, String),
+    pub partition_key: (String, String), // todo: AttributeValue
     pub sort_key: (String, String),
 }
 

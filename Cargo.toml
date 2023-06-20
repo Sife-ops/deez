@@ -13,7 +13,7 @@ keywords = ["dynamodb"]
 [dependencies]
 aws-sdk-dynamodb = "0.28.0"
 bevy_reflect = "0.10.1"
-deez_derive = { version = "0.1.0", path = "deez_derive" }
+deez_derive = { version = "0.1.1", path = "deez_derive" }
 thiserror = "1.0.40"
 
 [dev-dependencies]
