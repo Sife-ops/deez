@@ -206,6 +206,9 @@ pub fn derive(input: TokenStream) -> TokenStream {
                     _ => panic!("unknown entity index: {}", index), // todo: sus
                 }
             }
+            // pub fn index_key_av(&self, index: Index, key: Key) -> AttributeValue {
+            //     AttributeValue::S(self.index_key(index, key))
+            // }
             pub fn index_keys(&self, index: Index) -> IndexKeys {
                 match index {
                     #index_keys_match

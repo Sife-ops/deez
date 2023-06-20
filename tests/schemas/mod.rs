@@ -1,8 +1,5 @@
-use aws_sdk_dynamodb::Client;
-use deez::Deez;
-use std::sync::Arc;
-
 pub mod foo;
+use aws_sdk_dynamodb::Client;
 
 pub async fn make_client() -> Client {
     Client::new(
@@ -12,12 +9,4 @@ pub async fn make_client() -> Client {
             .load()
             .await,
     )
-}
-
-pub async fn make_deez() -> Deez {
-    Deez::new(make_client().await)
-}
-
-pub async fn make_deez_arc() -> Arc<Deez> {
-    Arc::new(Deez::new(make_client().await))
 }
