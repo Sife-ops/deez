@@ -1,178 +1,127 @@
-use crate::types::error::DeezError;
-use crate::types::schema::{composed_key, composed_index, DynamoType, IndexKey, IndexKeysComposed, Schema};
-use aws_sdk_dynamodb::types::AttributeValue;
-use aws_sdk_dynamodb::Client;
-use std::collections::HashMap;
-
-pub type DeezResult<T> = Result<T, DeezError>;
-
-pub struct Deez {
-    client: Client,
+#[derive(Debug)]
+pub struct IndexKeys {
+    pub hash: IndexKey,
+    pub range: IndexKey,
 }
 
-impl Deez {
-    pub fn new(c: Client) -> Deez {
-        Deez { client: c }
+#[derive(Debug)]
+pub struct IndexKey {
+    pub field: String,
+    pub composite: String,
+}
+
+#[derive(Eq, Hash, PartialEq, Debug)]
+pub enum Key {
+    Hash,
+    Range,
+}
+
+#[derive(Eq, Hash, PartialEq, Debug)]
+pub enum Index {
+    Primary,
+    Gsi1,
+    Gsi2,
+    Gsi3,
+    Gsi4,
+    Gsi5,
+    Gsi6,
+    Gsi7,
+    Gsi8,
+    Gsi9,
+    Gsi10,
+    Gsi11,
+    Gsi12,
+    Gsi13,
+    Gsi14,
+    Gsi15,
+    Gsi16,
+    Gsi17,
+    Gsi18,
+    Gsi19,
+    Gsi20,
+}
+
+impl std::fmt::Display for Index {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Index::Primary => write!(f, "Primary"),
+            Index::Gsi1 => write!(f, "Gsi1"),
+            Index::Gsi2 => write!(f, "Gsi2"),
+            Index::Gsi3 => write!(f, "Gsi3"),
+            Index::Gsi4 => write!(f, "Gsi4"),
+            Index::Gsi5 => write!(f, "Gsi5"),
+            Index::Gsi6 => write!(f, "Gsi6"),
+            Index::Gsi7 => write!(f, "Gsi7"),
+            Index::Gsi8 => write!(f, "Gsi8"),
+            Index::Gsi9 => write!(f, "Gsi9"),
+            Index::Gsi10 => write!(f, "Gsi10"),
+            Index::Gsi11 => write!(f, "Gsi11"),
+            Index::Gsi12 => write!(f, "Gsi12"),
+            Index::Gsi13 => write!(f, "Gsi13"),
+            Index::Gsi14 => write!(f, "Gsi14"),
+            Index::Gsi15 => write!(f, "Gsi15"),
+            Index::Gsi16 => write!(f, "Gsi16"),
+            Index::Gsi17 => write!(f, "Gsi17"),
+            Index::Gsi18 => write!(f, "Gsi18"),
+            Index::Gsi19 => write!(f, "Gsi19"),
+            Index::Gsi20 => write!(f, "Gsi20"),
+        }
     }
 }
 
-// mod create;
+// #[cfg(test)]
+// mod tests {
+//     use super::*;
+//     use crate::mocks::mocks::*;
 
-// mod batch_write;
+//     #[tokio::test]
+//     async fn to_from() {
+//         let a = Foo {
+//             foo_string_1: "aaa".to_string(),
+//             foo_string_2: "bbb".to_string(),
+//             foo_string_3: "ccc".to_string(),
+//             foo_string_4: "ddd".to_string(),
+//             foo_string_5: "eee".to_string(),
+//             foo_string_6: "fff".to_string(),
+//             foo_bool: true,
+//             ..Default::default()
+//         };
 
-// mod delete;
+//         let b = a.to_av_map_with_keys().unwrap();
+//         println!("{:#?}", b);
 
-// mod query;
+//         assert_eq!(
+//             b["pk"],
+//             AttributeValue::S("$fooservice#fooentity#foo_string_1_aaa".to_string())
+//         );
+//         assert_eq!(b["sk"], AttributeValue::S("$fooentity".to_string()));
+//         assert_eq!(
+//             b["gsi1pk"],
+//             AttributeValue::S("$fooservice#fooentity#foo_string_2_bbb".to_string())
+//         );
+//         assert_eq!(
+//             b["gsi1sk"],
+//             AttributeValue::S("$fooentity#foo_string_1_aaa".to_string())
+//         );
+//         assert_eq!(
+//             b["gsi2pk"],
+//             AttributeValue::S("$fooservice#fooentity#foo_string_3_ccc".to_string())
+//         );
+//         assert_eq!(
+//             b["gsi2sk"],
+//             AttributeValue::S("$fooentity#foo_string_4_ddd#foo_string_5_eee".to_string())
+//         );
 
-// mod update;
+//         let c = Foo::from_av_map(&b).unwrap();
+//         // println!("{:#?}", c);
 
-// mod batch_get;
-// todo: get
-
-// mod scan;
-
-pub trait DeezSchema {
-    fn schema(&self) -> Schema;
-}
-
-pub trait DeezEntity: DeezSchema + bevy_reflect::Struct {
-    fn to_av_map_with_keys(&self) -> DeezResult<HashMap<String, AttributeValue>>
-    where
-        Self: Sized,
-    {
-        let mut m = self.to_av_map()?;
-        let s = self.schema();
-
-        let b = composed_index!(s.primary_index, s, m);
-        {
-            let (c, d) = b.partition_key;
-            m.insert(c.to_string(), AttributeValue::S(d));
-        }
-        {
-            let (c, d) = b.sort_key;
-            m.insert(c.to_string(), AttributeValue::S(d));
-        }
-
-        for (_, c) in s.global_secondary_indexes {
-            let d = composed_index!(c, s, m);
-            {
-                let (e, f) = d.partition_key;
-                m.insert(e.to_string(), AttributeValue::S(f));
-            }
-            {
-                let (e, f) = d.sort_key;
-                m.insert(e.to_string(), AttributeValue::S(f));
-            }
-        }
-
-        Ok(m)
-    }
-
-    fn from_av_map(m: &HashMap<String, AttributeValue>) -> DeezResult<Self>
-    where
-        Self: Sized;
-
-    fn to_av_map(&self) -> DeezResult<HashMap<String, AttributeValue>> {
-        let mut av_map: HashMap<String, AttributeValue> = HashMap::new();
-        let schema = self.schema();
-
-        for (i, value) in self.iter_fields().enumerate() {
-            let field_name = self.name_at(i).ok_or(DeezError::UnknownStructIndex(i))?;
-            let attribute = schema
-                .attributes
-                .get(field_name)
-                .ok_or(DeezError::UnknownAttribute(field_name.to_string()))?;
-
-            // todo: list types
-            // todo: optional types
-            let av: AttributeValue;
-            match &attribute {
-                DynamoType::DynamoString => {
-                    av = AttributeValue::S(
-                        value
-                            .downcast_ref::<String>()
-                            .ok_or(DeezError::FailedDowncast(field_name.to_string()))?
-                            .to_string(),
-                    );
-                }
-                DynamoType::DynamoBool => {
-                    av = AttributeValue::Bool(
-                        value
-                            .downcast_ref::<bool>()
-                            .ok_or(DeezError::FailedDowncast(field_name.to_string()))?
-                            .clone(),
-                    )
-                }
-                DynamoType::DynamoNumber => {
-                    av = AttributeValue::N(
-                        value
-                            .downcast_ref::<f64>()
-                            .ok_or(DeezError::FailedDowncast(field_name.to_string()))?
-                            .to_string(),
-                    )
-                }
-            }
-
-            av_map.insert(field_name.to_string(), av);
-        }
-
-        Ok(av_map)
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use crate::mocks::mocks::*;
-
-    #[tokio::test]
-    async fn to_from() {
-        let a = Foo {
-            foo_string_1: "aaa".to_string(),
-            foo_string_2: "bbb".to_string(),
-            foo_string_3: "ccc".to_string(),
-            foo_string_4: "ddd".to_string(),
-            foo_string_5: "eee".to_string(),
-            foo_string_6: "fff".to_string(),
-            foo_bool: true,
-            ..Default::default()
-        };
-
-        let b = a.to_av_map_with_keys().unwrap();
-        println!("{:#?}", b);
-
-        assert_eq!(
-            b["pk"],
-            AttributeValue::S("$fooservice#fooentity#foo_string_1_aaa".to_string())
-        );
-        assert_eq!(b["sk"], AttributeValue::S("$fooentity".to_string()));
-        assert_eq!(
-            b["gsi1pk"],
-            AttributeValue::S("$fooservice#fooentity#foo_string_2_bbb".to_string())
-        );
-        assert_eq!(
-            b["gsi1sk"],
-            AttributeValue::S("$fooentity#foo_string_1_aaa".to_string())
-        );
-        assert_eq!(
-            b["gsi2pk"],
-            AttributeValue::S("$fooservice#fooentity#foo_string_3_ccc".to_string())
-        );
-        assert_eq!(
-            b["gsi2sk"],
-            AttributeValue::S("$fooentity#foo_string_4_ddd#foo_string_5_eee".to_string())
-        );
-
-        let c = Foo::from_av_map(&b).unwrap();
-        // println!("{:#?}", c);
-
-        assert_eq!(c.foo_string_1, "aaa".to_string());
-        assert_eq!(c.foo_string_2, "bbb".to_string());
-        assert_eq!(c.foo_string_3, "ccc".to_string());
-        assert_eq!(c.foo_string_4, "ddd".to_string());
-        assert_eq!(c.foo_string_5, "eee".to_string());
-        assert_eq!(c.foo_string_6, "fff".to_string());
-        assert_eq!(c.foo_f64, 69.0);
-        assert_eq!(c.foo_bool, true);
-    }
-}
+//         assert_eq!(c.foo_string_1, "aaa".to_string());
+//         assert_eq!(c.foo_string_2, "bbb".to_string());
+//         assert_eq!(c.foo_string_3, "ccc".to_string());
+//         assert_eq!(c.foo_string_4, "ddd".to_string());
+//         assert_eq!(c.foo_string_5, "eee".to_string());
+//         assert_eq!(c.foo_string_6, "fff".to_string());
+//         assert_eq!(c.foo_f64, 69.0);
+//         assert_eq!(c.foo_bool, true);
+//     }
+// }
