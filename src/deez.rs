@@ -16,20 +16,20 @@ impl Deez {
     }
 }
 
-mod create;
+// mod create;
 
-mod batch_write;
+// mod batch_write;
 
-mod delete;
+// mod delete;
 
-mod query;
+// mod query;
 
-mod update;
+// mod update;
 
-mod batch_get;
+// mod batch_get;
 // todo: get
 
-mod scan;
+// mod scan;
 
 pub trait DeezSchema {
     fn schema(&self) -> Schema;
