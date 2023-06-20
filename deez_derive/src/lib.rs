@@ -7,7 +7,7 @@ use quote::{format_ident, quote, ToTokens};
 use std::{collections::HashMap, fmt::Debug};
 use syn::{DeriveInput, Field, Ident};
 
-#[proc_macro_derive(Deez, attributes(ligma_schema, ligma_attribute, ligma_ignore))]
+#[proc_macro_derive(Deez, attributes(deez_schema, deez_attribute, deez_ignore))]
 pub fn derive(input: TokenStream) -> TokenStream {
     let DeriveInput { attrs, data, ident, .. } = syn::parse(input).unwrap();
 
@@ -159,12 +159,17 @@ pub fn derive(input: TokenStream) -> TokenStream {
     }
 
     let uses = quote! {
-        use deez::{Index, Key, IndexKey, IndexKeys};
+        // use deez::{Index, Key, IndexKey, IndexKeys};
         use aws_sdk_dynamodb::types::AttributeValue;
+        use std::collections::HashMap;
     };
 
+    let table = s.table;
     let impl_self = quote! {
         impl #ident {
+            pub fn table(&self) -> String {
+                #table.to_string()
+            }
             pub fn index_key(&self, index: Index, key: Key) -> IndexKey {
                 match index {
                     #index_key_match
@@ -222,7 +227,7 @@ struct Composite {
 ////////////////////////////////////////////////////////////////////////////////
 /// attributes
 #[derive(Attribute, Debug)]
-#[attribute(ident = ligma_attribute)]
+#[attribute(ident = deez_attribute)]
 struct DeezAttribute {
     index: String,
     key: String,
@@ -232,14 +237,14 @@ struct DeezAttribute {
 
 // todo: cant use empty struct???
 #[derive(Attribute, Debug)]
-#[attribute(ident = ligma_ignore)]
+#[attribute(ident = deez_ignore)]
 struct DeezIgnore {
     #[attribute(optional = false, default = true)]
     ignore: bool,
 }
 
 #[derive(Attribute, Debug)]
-#[attribute(ident = ligma_schema)]
+#[attribute(ident = deez_schema)]
 // #[attribute(invalid_field = "ok")]
 struct DeezSchema {
     service: String,

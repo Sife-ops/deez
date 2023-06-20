@@ -69,59 +69,72 @@ impl std::fmt::Display for Index {
     }
 }
 
-// #[cfg(test)]
-// mod tests {
-//     use super::*;
-//     use crate::mocks::mocks::*;
+#[cfg(test)]
+mod tests {
+    use crate::mocks::mocks::*;
+    use aws_sdk_dynamodb::types::AttributeValue;
+    use std::collections::HashMap;
 
-//     #[tokio::test]
-//     async fn to_from() {
-//         let a = Foo {
-//             foo_string_1: "aaa".to_string(),
-//             foo_string_2: "bbb".to_string(),
-//             foo_string_3: "ccc".to_string(),
-//             foo_string_4: "ddd".to_string(),
-//             foo_string_5: "eee".to_string(),
-//             foo_string_6: "fff".to_string(),
-//             foo_bool: true,
-//             ..Default::default()
-//         };
+    #[test]
+    fn to_from() {
+        let a = Foo {
+            foo_string_1: "aaa".to_string(),
+            foo_string_2: "bbb".to_string(),
+            foo_string_3: "ccc".to_string(),
+            foo_string_4: "ddd".to_string(),
+            foo_string_5: "eee".to_string(),
+            foo_string_6: "fff".to_string(),
+            ..Default::default()
+        };
 
-//         let b = a.to_av_map_with_keys().unwrap();
-//         println!("{:#?}", b);
+        let b: HashMap<String, AttributeValue> = a.into();
 
-//         assert_eq!(
-//             b["pk"],
-//             AttributeValue::S("$fooservice#fooentity#foo_string_1_aaa".to_string())
-//         );
-//         assert_eq!(b["sk"], AttributeValue::S("$fooentity".to_string()));
-//         assert_eq!(
-//             b["gsi1pk"],
-//             AttributeValue::S("$fooservice#fooentity#foo_string_2_bbb".to_string())
-//         );
-//         assert_eq!(
-//             b["gsi1sk"],
-//             AttributeValue::S("$fooentity#foo_string_1_aaa".to_string())
-//         );
-//         assert_eq!(
-//             b["gsi2pk"],
-//             AttributeValue::S("$fooservice#fooentity#foo_string_3_ccc".to_string())
-//         );
-//         assert_eq!(
-//             b["gsi2sk"],
-//             AttributeValue::S("$fooentity#foo_string_4_ddd#foo_string_5_eee".to_string())
-//         );
+        println!("{:#?}", b);
 
-//         let c = Foo::from_av_map(&b).unwrap();
-//         // println!("{:#?}", c);
+        // "foo_string_1": S( "aaa",),
+        // "foo_string_2": S( "bbb",),
+        // "foo_string_3": S( "ccc",),
+        // "foo_string_4": S( "ddd",),
+        // "foo_string_5": S( "eee",),
+        // "foo_num1": N( "69",),
+        // "foo_bool1": Bool( true,),
 
-//         assert_eq!(c.foo_string_1, "aaa".to_string());
-//         assert_eq!(c.foo_string_2, "bbb".to_string());
-//         assert_eq!(c.foo_string_3, "ccc".to_string());
-//         assert_eq!(c.foo_string_4, "ddd".to_string());
-//         assert_eq!(c.foo_string_5, "eee".to_string());
-//         assert_eq!(c.foo_string_6, "fff".to_string());
-//         assert_eq!(c.foo_f64, 69.0);
-//         assert_eq!(c.foo_bool, true);
-//     }
-// }
+        assert_eq!(
+            b["pk"],
+            AttributeValue::S("$foo_service#foo_entity#foo_string_1_aaa".to_string())
+        );
+        assert_eq!(
+            b["sk"],
+            AttributeValue::S("$foo_entity#foo_string_2_bbb#foo_string_3_ccc".to_string())
+        );
+
+        assert_eq!(
+            b["gsi1pk"],
+            AttributeValue::S("$foo_service#foo_entity#foo_string_4_ddd".to_string())
+        );
+
+        assert_eq!(
+            b["gsi1sk"],
+            AttributeValue::S("$foo_entity#foo_num1_69".to_string())
+        );
+
+        assert_eq!(
+            b["gsi2pk"],
+            AttributeValue::S("$foo_service#foo_entity#foo_string_5_eee".to_string())
+        );
+
+        assert_eq!(b["gsi2sk"], AttributeValue::S("$foo_entity".to_string()));
+
+        //         let c = Foo::from_av_map(&b).unwrap();
+        //         // println!("{:#?}", c);
+
+        //         assert_eq!(c.foo_string_1, "aaa".to_string());
+        //         assert_eq!(c.foo_string_2, "bbb".to_string());
+        //         assert_eq!(c.foo_string_3, "ccc".to_string());
+        //         assert_eq!(c.foo_string_4, "ddd".to_string());
+        //         assert_eq!(c.foo_string_5, "eee".to_string());
+        //         assert_eq!(c.foo_string_6, "fff".to_string());
+        //         assert_eq!(c.foo_f64, 69.0);
+        //         assert_eq!(c.foo_bool, true);
+    }
+}

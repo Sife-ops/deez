@@ -1,15 +1,9 @@
 #[cfg(test)]
 pub mod mocks {
-    use aws_sdk_dynamodb::types::AttributeValue;
+    use crate::*;
     use aws_sdk_dynamodb::Client;
-    use std::collections::HashMap;
 
-    use crate::{
-        deez::DeezSchema, Deez, DeezEntity, DeezError, DynamoType, Index, IndexKey, IndexKeys, Key,
-        Reflect, Schema,
-    };
-
-    pub async fn make_mock_client() -> Client {
+    pub async fn make_client() -> Client {
         Client::new(
             &aws_config::from_env()
                 .endpoint_url("http://localhost:8000")
@@ -19,20 +13,27 @@ pub mod mocks {
         )
     }
 
-    pub async fn make_mock_deez() -> Deez {
-        Deez::new(make_mock_client().await)
-    }
-
-    #[derive(DeezEntity, Debug, Reflect)]
+    #[derive(Debug, Deez)]
+    #[deez_schema(table = "foo_table", service = "foo_service", entity = "foo_entity")]
+    #[deez_schema(hash = "pk", range = "sk")]
+    #[deez_schema(gsi1 = "gsi1", gsi1_hash = "gsi1pk", gsi1_range = "gsi1sk")]
+    #[deez_schema(gsi2 = "gsi2", gsi2_hash = "gsi2pk", gsi2_range = "gsi2sk")]
     pub struct Foo {
+        #[deez_attribute(index = "primary", key = "hash")]
         pub foo_string_1: String,
+        #[deez_attribute(index = "primary", key = "range")]
         pub foo_string_2: String,
+        #[deez_attribute(index = "primary", key = "range", position = 1)]
         pub foo_string_3: String,
+        #[deez_attribute(index = "gsi1", key = "hash")]
         pub foo_string_4: String,
+        #[deez_attribute(index = "gsi2", key = "hash")]
         pub foo_string_5: String,
+        #[deez_ignore(ignore)]
         pub foo_string_6: String,
-        pub foo_f64: f64,
-        pub foo_bool: bool,
+        #[deez_attribute(index = "gsi1", key = "range")]
+        pub foo_num1: f64,
+        pub foo_bool1: bool,
     }
 
     impl Default for Foo {
@@ -44,69 +45,8 @@ pub mod mocks {
                 foo_string_4: "".to_string(),
                 foo_string_5: "".to_string(),
                 foo_string_6: "".to_string(),
-                foo_f64: 69.0,
-                foo_bool: false,
-            }
-        }
-    }
-
-    pub const GSI1: Index = Index::Gsi1("gsi1");
-    pub const GSI2: Index = Index::Gsi2("gsi2");
-
-    impl DeezSchema for Foo {
-        fn schema(&self) -> Schema {
-            Schema {
-                table: "footable",
-                service: "fooservice",
-                entity: "fooentity",
-                primary_index: IndexKeys {
-                    partition_key: IndexKey::Partition(Key {
-                        field: "pk",
-                        composite: vec!["foo_string_1"],
-                    }),
-                    sort_key: IndexKey::Sort(Key {
-                        field: "sk",
-                        composite: vec![],
-                    }),
-                },
-                global_secondary_indexes: HashMap::from([
-                    (
-                        GSI1,
-                        IndexKeys {
-                            partition_key: IndexKey::Partition(Key {
-                                field: "gsi1pk",
-                                composite: vec!["foo_string_2"],
-                            }),
-                            sort_key: IndexKey::Sort(Key {
-                                field: "gsi1sk",
-                                composite: vec!["foo_string_1"],
-                            }),
-                        },
-                    ),
-                    (
-                        GSI2,
-                        IndexKeys {
-                            partition_key: IndexKey::Partition(Key {
-                                field: "gsi2pk",
-                                composite: vec!["foo_string_3"],
-                            }),
-                            sort_key: IndexKey::Sort(Key {
-                                field: "gsi2sk",
-                                composite: vec!["foo_string_4", "foo_string_5"],
-                            }),
-                        },
-                    ),
-                ]),
-                attributes: HashMap::from([
-                    ("foo_string_1", DynamoType::DynamoString),
-                    ("foo_string_2", DynamoType::DynamoString),
-                    ("foo_string_3", DynamoType::DynamoString),
-                    ("foo_string_4", DynamoType::DynamoString),
-                    ("foo_string_5", DynamoType::DynamoString),
-                    ("foo_string_6", DynamoType::DynamoString),
-                    ("foo_f64", DynamoType::DynamoNumber),
-                    ("foo_bool", DynamoType::DynamoBool),
-                ]),
+                foo_num1: 69.0,
+                foo_bool1: true,
             }
         }
     }
