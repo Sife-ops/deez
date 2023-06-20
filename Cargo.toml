@@ -1,6 +1,6 @@
 [package]
 name = "deez"
-version = "0.1.1"
+version = "0.2.0"
 edition = "2021"
 authors = ["Wyatt Goettsch <wyatt.goettsch@gmail.com>"]
 description = "abstraction for DynamoDB"

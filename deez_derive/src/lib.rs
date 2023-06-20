@@ -41,7 +41,8 @@ pub fn derive(input: TokenStream) -> TokenStream {
         _ => panic!("could not parse struct"),
     };
 
-    let mut field_av_map = quote! {};
+    let mut field_inserts = quote! {};
+    let mut field_reads = quote! {};
 
     for field in struct_data.fields.iter() {
         if field.attrs.len() > 0 {
@@ -78,22 +79,51 @@ pub fn derive(input: TokenStream) -> TokenStream {
         let field_name = field_ident.to_string();
         match type_name.as_str() {
             "String" => {
-                field_av_map = quote! {
-                    #field_av_map
+                field_inserts = quote! {
+                    #field_inserts
                     m.insert(#field_name.to_string(), AttributeValue::S(item.#field_ident.clone()));
-                }
+                };
+                field_reads = quote! {
+                    #field_reads
+                    #field_ident: item
+                        .get(#field_name)
+                        .unwrap() // todo: sus
+                        .as_s()
+                        .unwrap()
+                        .clone(),
+                };
             }
             "f64" => {
-                field_av_map = quote! {
-                    #field_av_map
+                field_inserts = quote! {
+                    #field_inserts
                     m.insert(#field_name.to_string(), AttributeValue::N(item.#field_ident.to_string()));
-                }
+                };
+                field_reads = quote! {
+                    #field_reads
+                    #field_ident: item
+                        .get(#field_name)
+                        .unwrap()
+                        .as_n()
+                        .unwrap()
+                        .clone()
+                        .parse::<f64>()
+                        .unwrap(),
+                };
             }
             "bool" => {
-                field_av_map = quote! {
-                    #field_av_map
+                field_inserts = quote! {
+                    #field_inserts
                     m.insert(#field_name.to_string(), AttributeValue::Bool(item.#field_ident));
-                }
+                };
+                field_reads = quote! {
+                    #field_reads
+                    #field_ident: item
+                        .get(#field_name)
+                        .unwrap()
+                        .as_bool()
+                        .unwrap()
+                        .clone(),
+                };
             }
             _ => panic!("unsupported type: {}", type_name),
         }
@@ -101,7 +131,7 @@ pub fn derive(input: TokenStream) -> TokenStream {
 
     let mut index_key_match = quote! {};
     let mut index_keys_match = quote! {};
-    let mut index_av_map = quote! {};
+    let mut index_inserts = quote! {};
 
     for (_, v) in m.iter() {
         let hash_composite = compose_key!(v.hash);
@@ -148,8 +178,8 @@ pub fn derive(input: TokenStream) -> TokenStream {
             }
         };
 
-        index_av_map = quote! {
-            #index_av_map
+        index_inserts = quote! {
+            #index_inserts
             {
                 let keys = item.index_keys(Index::#index);
                 m.insert(keys.hash.field, AttributeValue::S(keys.hash.composite));
@@ -173,7 +203,7 @@ pub fn derive(input: TokenStream) -> TokenStream {
             pub fn index_key(&self, index: Index, key: Key) -> IndexKey {
                 match index {
                     #index_key_match
-                    _ => panic!("unknown entity index: {}", index), // todo: sus?
+                    _ => panic!("unknown entity index: {}", index), // todo: sus
                 }
             }
             pub fn index_keys(&self, index: Index) -> IndexKeys {
@@ -189,9 +219,17 @@ pub fn derive(input: TokenStream) -> TokenStream {
         impl From<#ident> for HashMap<String, AttributeValue> {
             fn from(item: #ident) -> HashMap<String, AttributeValue> {
                 let mut m: HashMap<String, AttributeValue> = HashMap::new();
-                #field_av_map
-                #index_av_map
+                #field_inserts
+                #index_inserts
                 m
+            }
+        }
+        impl From<HashMap<String, AttributeValue>> for #ident {
+            fn from(item: HashMap<String, AttributeValue>) -> #ident {
+                #ident {
+                    #field_reads
+                    ..Default::default()
+                }
             }
         }
     };
