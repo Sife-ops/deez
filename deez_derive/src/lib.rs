@@ -77,6 +77,7 @@ pub fn derive(input: TokenStream) -> TokenStream {
 
         let field_ident = field.ident.as_ref().unwrap();
         let field_name = field_ident.to_string();
+
         match type_name.as_str() {
             "String" => {
                 field_inserts = quote! {
