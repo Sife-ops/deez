@@ -10,7 +10,7 @@ inspired by [ElectroDB](https://github.com/tywalch/electrodb).
 Define a schema for your entities using the `Deez` procedural macro. Doing so
 will derive the `From` conversion traits for your structs and the
 `HashMap<String, AttributeValue>` type used by the `aws_sdk_dynamodb` library,
-with some additional features for faciliting Single Table Design.
+with some additional features for facilitating Single Table Design.
 
 ```rust
 use aws_sdk_dynamodb::types::AttributeValue;
@@ -55,27 +55,28 @@ impl Default for Task {
 ```
 
 Now you can convert your struct to a `HashMap` that you can pass directly to the
-dynamodb client.
+DynamoDB client.
 
 ```rust
 let task = Task {
-    task_id: "1a2b3c4d".to_string(),
     project: "foo_project".to_string(),
     employee: "e42069".to_string(),
     description: "nothin' but chillin' 20's".to_string(),
     some_metadata: "baz".to_string(),
+    ..Default::default()
 };
 
 let map: HashMap<String, AttributeValue> = task.into();
 println!("{:#?}", map);
 
+// keys are generated based on schema!
 // output:
 // {
-//     "pk": S("$TaskService#Task#task_id_1a2b3c4d"),             <- keys generated based on schema
-//     "sk": S("$Task#employee_e42069#project_foo_project"),      <-
-//     "gsi1pk": S("$TaskService#Task#project_foo_project"),      <-
-//     "gsi1sk": S("$Task#employee_e42069#task_id_1a2b3c4d"),     <-
-//     "gsi2pk": S("$TaskService#Task#employee_e42069"),          <-
+//     "pk": S("$TaskService#Task#task_id_1885ea1d-e296-4c0f-9fbf-863b1318c698"), <-
+//     "sk": S("$Task#employee_e42069#project_foo_project"), <-
+//     "gsi1pk": S("$TaskService#Task#project_foo_project"), <-
+//     "gsi1sk": S("$Task#employee_e42069#task_id_1a2b3c4d"), <-
+//     "gsi2pk": S("$TaskService#Task#employee_e42069"), <-
 //     "gsi2sk": S("$Task#project_foo_project#task_id_1a2b3c4d"), <-
 //     "employee": S("e42069"),
 //     "project": S("foo_project"),
@@ -88,10 +89,11 @@ The following example shows a practical use-case interacting with DynamoDB
 client:
 
 ```rust
+use anyhow::Result;
 use aws_sdk_dynamodb::Client;
 
 #[tokio::main]
-async fn main() {
+async fn main() -> Result<()> {
     // local configuration
     let client = Client::new(
         &aws_config::from_env()
@@ -101,61 +103,58 @@ async fn main() {
             .await,
     );
 
-    // `create` example
-    let task = Task {
-        project: "foo_project".to_string(),
-        employee: "e42069".to_string(),
-        description: "nothin' but chillin' 20's".to_string(),
-        some_metadata: "baz".to_string(),
-        ..Default::default()
-    };
+    // `create` convenience macro utilizes the `attribute_not_exists()` parameter
+    // to ensure records are only “created” and not overwritten when inserting
+    // new records into the table.
+    create!(
+        client;
+        Task {
+            project: "foo_project".to_string(),
+            employee: "e42069".to_string(),
+            description: "nothin' but chillin' 20's".to_string(),
+            some_metadata: "baz".to_string(),
+            ..Default::default()
+        }
+    )?;
 
-    client
-        .put_item()
-        .table_name(Task::table_name())
-        .condition_expression("attribute_not_exists(#pk) AND attribute_not_exists(#sk)")
-        .set_expression_attribute_names(Some(HashMap::from([
-            (
-                "#pk".to_string(),
-                task.index_key(Index::Primary, Key::Hash).field,
-            ),
-            (
-                "#sk".to_string(),
-                task.index_key(Index::Primary, Key::Range).field,
-            ),
-        ])))
-        .set_item(Some(task.into())) // <- pass in struct directly using .into()
-        .send()
-        .await
-        .unwrap();
-
-    // `query` example
     let keys = Task {
-        task_id: "a145d3f8-4420-4c22-9178-00240102048a".to_string(),
+        task_id: "1a2b3c4d".to_string(),
         project: "foo_project".to_string(),
         employee: "e42069".to_string(),
         ..Default::default()
     }
-    .index_keys_av(Index::Primary);
+    .primary_keys();
 
-    let task_query = client
-        .query()
-        .table_name(Task::table_name())
-        .key_condition_expression("#pk = :pk and begins_with(#sk, :sk)")
-        .set_expression_attribute_names(Some(HashMap::from([
-            ("#pk".to_string(), keys.hash.field),
-            ("#sk".to_string(), keys.range.field),
-        ])))
-        .set_expression_attribute_values(Some(HashMap::from([
-            (":pk".to_string(), keys.hash.composite),
-            (":sk".to_string(), keys.range.composite),
-        ])))
-        .send()
-        .await
-        .unwrap();
+    // `vec_from_query` macro handles the process of converting the response
+    // back to `Vec<Task>`.
+    let tasks = vec_from_query!(
+        client
+            .query()
+            .table_name(Task::table_name())
+            .key_condition_expression("#pk = :pk and begins_with(#sk, :sk)")
+            .set_expression_attribute_names(Some(HashMap::from([
+                ("#pk".to_string(), keys.hash.field()),
+                ("#sk".to_string(), keys.range.field()),
+            ])))
+            .set_expression_attribute_values(Some(HashMap::from([
+                (":pk".to_string(), keys.hash.av()),
+                (":sk".to_string(), keys.range.av()),
+            ])))
+            .send()
+            .await?
 
-    let items = TaskItems::from(task_query.items().unwrap()).items(); // returns `Vec<Task>`
+        => TaskItems
+    );
+
+    // do something with `tasks`...
+
+    Ok(())
 }
 ```
+
+## Getting Shwifty (Aware)
+
+I highly recommend you peruse the `tests` folder for more usage examples, as the
+generated docs for macros won't be very helpful.
 
 <!-- Read the full docs on [docs.rs](https://docs.rs/deez/0.1.0/deez/struct.Deez.html) -->

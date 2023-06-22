@@ -27,6 +27,12 @@ dependencies = [
 ]
 
 [[package]]
+name = "anyhow"
+version = "1.0.71"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "9c7d0618f0e0b7e8ff11427422b64564d5fb0be1940354bfe2e0529b18a9d9b8"
+
+[[package]]
 name = "attribute-derive"
 version = "0.6.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -501,8 +507,9 @@ dependencies = [
 
 [[package]]
 name = "deez"
-version = "0.2.0"
+version = "0.2.1"
 dependencies = [
+ "anyhow",
  "aws-config",
  "aws-sdk-dynamodb",
  "chrono",
@@ -513,7 +520,7 @@ dependencies = [
 
 [[package]]
 name = "deez_derive"
-version = "0.2.0"
+version = "0.2.1"
 dependencies = [
  "attribute-derive",
  "proc-macro2",

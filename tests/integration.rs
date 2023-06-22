@@ -2,4 +2,4 @@
 // then run with `cargo test --test integration -- --nocapture --test-threads 1`
 
 mod schemas;
-mod deez;
+mod operations;

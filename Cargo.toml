@@ -1,6 +1,6 @@
 [package]
 name = "deez"
-version = "0.2.0"
+version = "0.2.1"
 edition = "2021"
 authors = ["Wyatt Goettsch <wyatt.goettsch@gmail.com>"]
 description = "abstraction for DynamoDB"
@@ -12,10 +12,11 @@ keywords = ["dynamodb"]
 
 [dependencies]
 aws-sdk-dynamodb = "0.28.0"
-deez_derive = { version = "0.2.0", path = "deez_derive" }
+deez_derive = { version = "0.2.1", path = "deez_derive" }
 thiserror = "1.0.40"
 
 [dev-dependencies]
 aws-config = "0.55.3"
 tokio = { version = "1", features = ["macros"] }
 chrono = "0.4.26"
+anyhow = "1.0.71"

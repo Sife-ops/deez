@@ -1,13 +1,13 @@
-mod macro_rules;
+mod macros;
 
 use attribute_derive::Attribute;
-use macro_rules::{compose_key, deez_attrs, insert_gsi, insert_index, read_attr};
+use macros::{attr_derive, compose_key, insert_gsi, insert_index, read_attr};
 use proc_macro::{self, TokenStream};
 use quote::{format_ident, quote, ToTokens};
 use std::{collections::HashMap, fmt::Debug};
 use syn::{DeriveInput, Field};
 
-deez_attrs!();
+attr_derive!();
 
 struct IndexKeys {
     hash: IndexKey,
@@ -57,29 +57,31 @@ pub fn derive(input: TokenStream) -> TokenStream {
     let DeriveInput { attrs, data, ident, .. } = syn::parse(input).unwrap();
 
     let s = DeezSchema::from_attributes(&attrs).unwrap();
-    let mut index_name_match = quote! {};
-    let mut m = HashMap::new();
-    insert_index!(m, "Primary", s.primary_hash, s.primary_range);
-    insert_gsi!(m, "Gsi1", s.gsi1_name, s.gsi1_hash, s.gsi1_range, index_name_match);
-    insert_gsi!(m, "Gsi2", s.gsi2_name, s.gsi2_hash, s.gsi2_range, index_name_match);
-    insert_gsi!(m, "Gsi3", s.gsi3_name, s.gsi3_hash, s.gsi3_range, index_name_match);
-    insert_gsi!(m, "Gsi4", s.gsi4_name, s.gsi4_hash, s.gsi4_range, index_name_match);
-    insert_gsi!(m, "Gsi5", s.gsi5_name, s.gsi5_hash, s.gsi5_range, index_name_match);
-    insert_gsi!(m, "Gsi6", s.gsi6_name, s.gsi6_hash, s.gsi6_range, index_name_match);
-    insert_gsi!(m, "Gsi7", s.gsi7_name, s.gsi7_hash, s.gsi7_range, index_name_match);
-    insert_gsi!(m, "Gsi8", s.gsi8_name, s.gsi8_hash, s.gsi8_range, index_name_match);
-    insert_gsi!(m, "Gsi9", s.gsi9_name, s.gsi9_hash, s.gsi9_range, index_name_match);
-    insert_gsi!(m, "Gsi10", s.gsi10_name, s.gsi10_hash, s.gsi10_range, index_name_match);
-    insert_gsi!(m, "Gsi11", s.gsi11_name, s.gsi11_hash, s.gsi11_range, index_name_match);
-    insert_gsi!(m, "Gsi12", s.gsi12_name, s.gsi12_hash, s.gsi12_range, index_name_match);
-    insert_gsi!(m, "Gsi13", s.gsi13_name, s.gsi13_hash, s.gsi13_range, index_name_match);
-    insert_gsi!(m, "Gsi14", s.gsi14_name, s.gsi14_hash, s.gsi14_range, index_name_match);
-    insert_gsi!(m, "Gsi15", s.gsi15_name, s.gsi15_hash, s.gsi15_range, index_name_match);
-    insert_gsi!(m, "Gsi16", s.gsi16_name, s.gsi16_hash, s.gsi16_range, index_name_match);
-    insert_gsi!(m, "Gsi17", s.gsi17_name, s.gsi17_hash, s.gsi17_range, index_name_match);
-    insert_gsi!(m, "Gsi18", s.gsi18_name, s.gsi18_hash, s.gsi18_range, index_name_match);
-    insert_gsi!(m, "Gsi19", s.gsi19_name, s.gsi19_hash, s.gsi19_range, index_name_match);
-    insert_gsi!(m, "Gsi20", s.gsi20_name, s.gsi20_hash, s.gsi20_range, index_name_match);
+
+    let mut index_meta = HashMap::new();
+    let mut index_name_fns = quote! {};
+
+    insert_index!(index_meta, "primary", s.primary_hash, s.primary_range);
+    insert_gsi!(index_meta, index_name_fns, "gsi1", s.gsi1_name, s.gsi1_hash, s.gsi1_range);
+    insert_gsi!(index_meta, index_name_fns, "gsi2", s.gsi2_name, s.gsi2_hash, s.gsi2_range);
+    insert_gsi!(index_meta, index_name_fns, "gsi3", s.gsi3_name, s.gsi3_hash, s.gsi3_range);
+    insert_gsi!(index_meta, index_name_fns, "gsi4", s.gsi4_name, s.gsi4_hash, s.gsi4_range);
+    insert_gsi!(index_meta, index_name_fns, "gsi5", s.gsi5_name, s.gsi5_hash, s.gsi5_range);
+    insert_gsi!(index_meta, index_name_fns, "gsi6", s.gsi6_name, s.gsi6_hash, s.gsi6_range);
+    insert_gsi!(index_meta, index_name_fns, "gsi7", s.gsi7_name, s.gsi7_hash, s.gsi7_range);
+    insert_gsi!(index_meta, index_name_fns, "gsi8", s.gsi8_name, s.gsi8_hash, s.gsi8_range);
+    insert_gsi!(index_meta, index_name_fns, "gsi9", s.gsi9_name, s.gsi9_hash, s.gsi9_range);
+    insert_gsi!(index_meta, index_name_fns, "gsi10", s.gsi10_name, s.gsi10_hash, s.gsi10_range);
+    insert_gsi!(index_meta, index_name_fns, "gsi11", s.gsi11_name, s.gsi11_hash, s.gsi11_range);
+    insert_gsi!(index_meta, index_name_fns, "gsi12", s.gsi12_name, s.gsi12_hash, s.gsi12_range);
+    insert_gsi!(index_meta, index_name_fns, "gsi13", s.gsi13_name, s.gsi13_hash, s.gsi13_range);
+    insert_gsi!(index_meta, index_name_fns, "gsi14", s.gsi14_name, s.gsi14_hash, s.gsi14_range);
+    insert_gsi!(index_meta, index_name_fns, "gsi15", s.gsi15_name, s.gsi15_hash, s.gsi15_range);
+    insert_gsi!(index_meta, index_name_fns, "gsi16", s.gsi16_name, s.gsi16_hash, s.gsi16_range);
+    insert_gsi!(index_meta, index_name_fns, "gsi17", s.gsi17_name, s.gsi17_hash, s.gsi17_range);
+    insert_gsi!(index_meta, index_name_fns, "gsi18", s.gsi18_name, s.gsi18_hash, s.gsi18_range);
+    insert_gsi!(index_meta, index_name_fns, "gsi19", s.gsi19_name, s.gsi19_hash, s.gsi19_range);
+    insert_gsi!(index_meta, index_name_fns, "gsi20", s.gsi20_name, s.gsi20_hash, s.gsi20_range);
 
     let struct_data = match data {
         syn::Data::Struct(s) => s,
@@ -97,27 +99,27 @@ pub fn derive(input: TokenStream) -> TokenStream {
                 }
             }
 
-            read_attr!(m, field, DeezPrimary, "Primary");
-            read_attr!(m, field, DeezGsi1, "Gsi1");
-            read_attr!(m, field, DeezGsi2, "Gsi2");
-            read_attr!(m, field, DeezGsi3, "Gsi3");
-            read_attr!(m, field, DeezGsi4, "Gsi4");
-            read_attr!(m, field, DeezGsi5, "Gsi5");
-            read_attr!(m, field, DeezGsi6, "Gsi6");
-            read_attr!(m, field, DeezGsi7, "Gsi7");
-            read_attr!(m, field, DeezGsi8, "Gsi8");
-            read_attr!(m, field, DeezGsi9, "Gsi9");
-            read_attr!(m, field, DeezGsi10, "Gsi10");
-            read_attr!(m, field, DeezGsi11, "Gsi11");
-            read_attr!(m, field, DeezGsi12, "Gsi12");
-            read_attr!(m, field, DeezGsi13, "Gsi13");
-            read_attr!(m, field, DeezGsi14, "Gsi14");
-            read_attr!(m, field, DeezGsi15, "Gsi15");
-            read_attr!(m, field, DeezGsi16, "Gsi16");
-            read_attr!(m, field, DeezGsi17, "Gsi17");
-            read_attr!(m, field, DeezGsi18, "Gsi18");
-            read_attr!(m, field, DeezGsi19, "Gsi19");
-            read_attr!(m, field, DeezGsi20, "Gsi20");
+            read_attr!(index_meta, field, DeezPrimary, "primary");
+            read_attr!(index_meta, field, DeezGsi1, "gsi1");
+            read_attr!(index_meta, field, DeezGsi2, "gsi2");
+            read_attr!(index_meta, field, DeezGsi3, "gsi3");
+            read_attr!(index_meta, field, DeezGsi4, "gsi4");
+            read_attr!(index_meta, field, DeezGsi5, "gsi5");
+            read_attr!(index_meta, field, DeezGsi6, "gsi6");
+            read_attr!(index_meta, field, DeezGsi7, "gsi7");
+            read_attr!(index_meta, field, DeezGsi8, "gsi8");
+            read_attr!(index_meta, field, DeezGsi9, "gsi9");
+            read_attr!(index_meta, field, DeezGsi10, "gsi10");
+            read_attr!(index_meta, field, DeezGsi11, "gsi11");
+            read_attr!(index_meta, field, DeezGsi12, "gsi12");
+            read_attr!(index_meta, field, DeezGsi13, "gsi13");
+            read_attr!(index_meta, field, DeezGsi14, "gsi14");
+            read_attr!(index_meta, field, DeezGsi15, "gsi15");
+            read_attr!(index_meta, field, DeezGsi16, "gsi16");
+            read_attr!(index_meta, field, DeezGsi17, "gsi17");
+            read_attr!(index_meta, field, DeezGsi18, "gsi18");
+            read_attr!(index_meta, field, DeezGsi19, "gsi19");
+            read_attr!(index_meta, field, DeezGsi20, "gsi20");
         }
 
         let type_name = match &field.ty {
@@ -180,11 +182,11 @@ pub fn derive(input: TokenStream) -> TokenStream {
         }
     }
 
-    let mut index_key_match = quote! {};
-    let mut index_keys_match = quote! {};
+    let mut index_key_fns = quote! {};
+    let mut index_keys_fns = quote! {};
     let mut index_inserts = quote! {};
 
-    for (k, v) in m.iter() {
+    for (k, v) in index_meta.iter() {
         let hash_composite = compose_key!(v.hash);
         let range_composite = compose_key!(v.range);
 
@@ -192,12 +194,11 @@ pub fn derive(input: TokenStream) -> TokenStream {
         let entity = s.entity.clone();
         let hash_field = v.hash.field.clone();
         let range_field = v.range.field.clone();
-        let index_enum_variant = format_ident!("{}", k);
-        // let index_enum_variant_inner = index_enum_variant!(k, &v.index_name);
 
-        index_key_match = quote! {
-            #index_key_match
-            Index::#index_enum_variant => {
+        let index_key_fn_name = format_ident!("{}_key", k);
+        index_key_fns = quote! {
+            #index_key_fns
+            pub fn #index_key_fn_name(&self, key: Key) -> IndexKey {
                 let mut composed = String::new();
                 match key {
                     Key::Hash => {
@@ -220,12 +221,13 @@ pub fn derive(input: TokenStream) -> TokenStream {
             }
         };
 
-        index_keys_match = quote! {
-            #index_keys_match
-            Index::#index_enum_variant => {
-                return IndexKeys {
-                    hash: self.index_key(Index::#index_enum_variant, Key::Hash),
-                    range: self.index_key(Index::#index_enum_variant, Key::Range),
+        let index_keys_fn_name = format_ident!("{}_keys", k);
+        index_keys_fns = quote! {
+            #index_keys_fns
+            pub fn #index_keys_fn_name(&self) -> IndexKeys {
+                IndexKeys {
+                    hash: self.#index_key_fn_name(Key::Hash),
+                    range: self.#index_key_fn_name(Key::Range),
                 }
             }
         };
@@ -233,9 +235,10 @@ pub fn derive(input: TokenStream) -> TokenStream {
         index_inserts = quote! {
             #index_inserts
             {
-                let keys = item.index_keys(Index::#index_enum_variant);
-                m.insert(keys.hash.field, AttributeValue::S(keys.hash.composite));
-                m.insert(keys.range.field, AttributeValue::S(keys.range.composite));
+                let keys = item.#index_keys_fn_name();
+                // m.insert(keys.hash.field, AttributeValue::S(keys.hash.composite));
+                m.insert(keys.hash.field(), keys.hash.av());
+                m.insert(keys.range.field(), keys.range.av());
             }
         };
     }
@@ -244,56 +247,17 @@ pub fn derive(input: TokenStream) -> TokenStream {
     let response_items = format_ident!("{}Items", ident);
 
     let out = quote! {
-        // use deez::{Index, Key, IndexKey, IndexKeys};
-        // use aws_sdk_dynamodb::types::AttributeValue;
-        // use std::collections::HashMap;
-
         impl #ident {
+            #index_name_fns
+            #index_key_fns
+            #index_keys_fns
+
             pub fn table_name() -> String {
                 #table.to_string()
             }
 
-            pub fn index_name(index: Index) -> String {
-                match index {
-                    #index_name_match
-                    _ => panic!("unknown entity index: {}", index), // todo: custom error
-                }
-            }
-
-            pub fn index_key(&self, index: Index, key: Key) -> IndexKey<String> {
-                match index {
-                    #index_key_match
-                    _ => panic!("unknown entity index: {}", index),
-                }
-            }
-
-            pub fn index_key_av(&self, index: Index, key: Key) -> IndexKey<AttributeValue> {
-                let k = self.index_key(index, key);
-                IndexKey {
-                    field: k.field,
-                    composite: AttributeValue::S(k.composite),
-                }
-            }
-
-            pub fn index_keys(&self, index: Index) -> IndexKeys<String> {
-                match index {
-                    #index_keys_match
-                    _ => panic!("unknown entity index: {}", index),
-                }
-            }
-
-            pub fn index_keys_av(&self, index: Index) -> IndexKeys<AttributeValue> {
-                let k = self.index_keys(index);
-                IndexKeys {
-                    hash: IndexKey {
-                        field: k.hash.field,
-                        composite: AttributeValue::S(k.hash.composite),
-                    },
-                    range: IndexKey {
-                        field: k.range.field,
-                        composite: AttributeValue::S(k.range.composite),
-                    }
-                }
+            pub fn table__name(&self) -> String {
+                #table.to_string()
             }
         }
 
@@ -318,6 +282,12 @@ pub fn derive(input: TokenStream) -> TokenStream {
         #[derive(Debug)]
         pub struct #response_items(pub Vec<#ident>);
 
+        impl #response_items {
+            pub fn items(self) -> Vec<#ident> {
+                self.0
+            }
+        }
+
         impl From<&[HashMap<String, AttributeValue>]> for #response_items {
             fn from(item: &[HashMap<String, AttributeValue>]) -> #response_items {
                 let mut items: Vec<#ident> = Vec::new();
@@ -325,12 +295,6 @@ pub fn derive(input: TokenStream) -> TokenStream {
                     items.push(i.into());
                 }
                 #response_items(items)
-            }
-        }
-
-        impl #response_items {
-            pub fn items(self) -> Vec<#ident> {
-                self.0
             }
         }
 
