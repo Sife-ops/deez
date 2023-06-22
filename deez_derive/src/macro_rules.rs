@@ -26,7 +26,7 @@ macro_rules! insert_gsi {
             let enum_variant_ident = format_ident!($enum_variant_name);
             $index_name_match = quote! {
                 #$index_name_match
-                Index::#enum_variant_ident => {
+                Index::#enum_variant_ident => { // todo: ignore primary
                     return #index_name.to_string();
                 }
             }
@@ -36,6 +36,7 @@ macro_rules! insert_gsi {
 
 pub(crate) use insert_gsi;
 
+// todo: skip empty
 macro_rules! compose_key {
     ($index_key: expr) => {{
         let mut composed = quote! {};

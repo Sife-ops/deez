@@ -255,7 +255,18 @@ pub fn derive(input: TokenStream) -> TokenStream {
                 #table.to_string()
             }
 
+            pub fn table__name(&self) -> String {
+                #table.to_string()
+            }
+
             pub fn index_name(index: Index) -> String {
+                match index {
+                    #index_name_match
+                    _ => panic!("unknown entity index: {}", index), // todo: custom error
+                }
+            }
+
+            pub fn index__name(&self, index: Index) -> String {
                 match index {
                     #index_name_match
                     _ => panic!("unknown entity index: {}", index), // todo: custom error
