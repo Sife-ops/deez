@@ -1,7 +1,7 @@
-mod macro_rules;
+mod macros;
 
 use attribute_derive::Attribute;
-use macro_rules::{attr_derive, compose_key, insert_gsi, insert_index, read_attr};
+use macros::{attr_derive, compose_key, insert_gsi, insert_index, read_attr};
 use proc_macro::{self, TokenStream};
 use quote::{format_ident, quote, ToTokens};
 use std::{collections::HashMap, fmt::Debug};
@@ -259,6 +259,7 @@ pub fn derive(input: TokenStream) -> TokenStream {
                 #table.to_string()
             }
 
+            // todo: all generated functions
             pub fn index_name(index: Index) -> String {
                 match index {
                     #index_name_match
