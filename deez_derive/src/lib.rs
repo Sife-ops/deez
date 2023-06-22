@@ -1,13 +1,13 @@
 mod macro_rules;
 
 use attribute_derive::Attribute;
-use macro_rules::{compose_key, deez_attrs, insert_gsi, insert_index, read_attr};
+use macro_rules::{attr_derive, compose_key, insert_gsi, insert_index, read_attr};
 use proc_macro::{self, TokenStream};
 use quote::{format_ident, quote, ToTokens};
 use std::{collections::HashMap, fmt::Debug};
 use syn::{DeriveInput, Field};
 
-deez_attrs!();
+attr_derive!();
 
 struct IndexKeys {
     hash: IndexKey,
@@ -57,29 +57,31 @@ pub fn derive(input: TokenStream) -> TokenStream {
     let DeriveInput { attrs, data, ident, .. } = syn::parse(input).unwrap();
 
     let s = DeezSchema::from_attributes(&attrs).unwrap();
+
     let mut index_name_match = quote! {};
-    let mut m = HashMap::new();
-    insert_index!(m, "Primary", s.primary_hash, s.primary_range);
-    insert_gsi!(m, "Gsi1", s.gsi1_name, s.gsi1_hash, s.gsi1_range, index_name_match);
-    insert_gsi!(m, "Gsi2", s.gsi2_name, s.gsi2_hash, s.gsi2_range, index_name_match);
-    insert_gsi!(m, "Gsi3", s.gsi3_name, s.gsi3_hash, s.gsi3_range, index_name_match);
-    insert_gsi!(m, "Gsi4", s.gsi4_name, s.gsi4_hash, s.gsi4_range, index_name_match);
-    insert_gsi!(m, "Gsi5", s.gsi5_name, s.gsi5_hash, s.gsi5_range, index_name_match);
-    insert_gsi!(m, "Gsi6", s.gsi6_name, s.gsi6_hash, s.gsi6_range, index_name_match);
-    insert_gsi!(m, "Gsi7", s.gsi7_name, s.gsi7_hash, s.gsi7_range, index_name_match);
-    insert_gsi!(m, "Gsi8", s.gsi8_name, s.gsi8_hash, s.gsi8_range, index_name_match);
-    insert_gsi!(m, "Gsi9", s.gsi9_name, s.gsi9_hash, s.gsi9_range, index_name_match);
-    insert_gsi!(m, "Gsi10", s.gsi10_name, s.gsi10_hash, s.gsi10_range, index_name_match);
-    insert_gsi!(m, "Gsi11", s.gsi11_name, s.gsi11_hash, s.gsi11_range, index_name_match);
-    insert_gsi!(m, "Gsi12", s.gsi12_name, s.gsi12_hash, s.gsi12_range, index_name_match);
-    insert_gsi!(m, "Gsi13", s.gsi13_name, s.gsi13_hash, s.gsi13_range, index_name_match);
-    insert_gsi!(m, "Gsi14", s.gsi14_name, s.gsi14_hash, s.gsi14_range, index_name_match);
-    insert_gsi!(m, "Gsi15", s.gsi15_name, s.gsi15_hash, s.gsi15_range, index_name_match);
-    insert_gsi!(m, "Gsi16", s.gsi16_name, s.gsi16_hash, s.gsi16_range, index_name_match);
-    insert_gsi!(m, "Gsi17", s.gsi17_name, s.gsi17_hash, s.gsi17_range, index_name_match);
-    insert_gsi!(m, "Gsi18", s.gsi18_name, s.gsi18_hash, s.gsi18_range, index_name_match);
-    insert_gsi!(m, "Gsi19", s.gsi19_name, s.gsi19_hash, s.gsi19_range, index_name_match);
-    insert_gsi!(m, "Gsi20", s.gsi20_name, s.gsi20_hash, s.gsi20_range, index_name_match);
+    let mut index_meta = HashMap::new();
+
+    insert_index!(index_meta, "Primary", s.primary_hash, s.primary_range);
+    insert_gsi!(index_meta, index_name_match, "Gsi1", s.gsi1_name, s.gsi1_hash, s.gsi1_range);
+    insert_gsi!(index_meta, index_name_match, "Gsi2", s.gsi2_name, s.gsi2_hash, s.gsi2_range);
+    insert_gsi!(index_meta, index_name_match, "Gsi3", s.gsi3_name, s.gsi3_hash, s.gsi3_range);
+    insert_gsi!(index_meta, index_name_match, "Gsi4", s.gsi4_name, s.gsi4_hash, s.gsi4_range);
+    insert_gsi!(index_meta, index_name_match, "Gsi5", s.gsi5_name, s.gsi5_hash, s.gsi5_range);
+    insert_gsi!(index_meta, index_name_match, "Gsi6", s.gsi6_name, s.gsi6_hash, s.gsi6_range);
+    insert_gsi!(index_meta, index_name_match, "Gsi7", s.gsi7_name, s.gsi7_hash, s.gsi7_range);
+    insert_gsi!(index_meta, index_name_match, "Gsi8", s.gsi8_name, s.gsi8_hash, s.gsi8_range);
+    insert_gsi!(index_meta, index_name_match, "Gsi9", s.gsi9_name, s.gsi9_hash, s.gsi9_range);
+    insert_gsi!(index_meta, index_name_match, "Gsi10", s.gsi10_name, s.gsi10_hash, s.gsi10_range);
+    insert_gsi!(index_meta, index_name_match, "Gsi11", s.gsi11_name, s.gsi11_hash, s.gsi11_range);
+    insert_gsi!(index_meta, index_name_match, "Gsi12", s.gsi12_name, s.gsi12_hash, s.gsi12_range);
+    insert_gsi!(index_meta, index_name_match, "Gsi13", s.gsi13_name, s.gsi13_hash, s.gsi13_range);
+    insert_gsi!(index_meta, index_name_match, "Gsi14", s.gsi14_name, s.gsi14_hash, s.gsi14_range);
+    insert_gsi!(index_meta, index_name_match, "Gsi15", s.gsi15_name, s.gsi15_hash, s.gsi15_range);
+    insert_gsi!(index_meta, index_name_match, "Gsi16", s.gsi16_name, s.gsi16_hash, s.gsi16_range);
+    insert_gsi!(index_meta, index_name_match, "Gsi17", s.gsi17_name, s.gsi17_hash, s.gsi17_range);
+    insert_gsi!(index_meta, index_name_match, "Gsi18", s.gsi18_name, s.gsi18_hash, s.gsi18_range);
+    insert_gsi!(index_meta, index_name_match, "Gsi19", s.gsi19_name, s.gsi19_hash, s.gsi19_range);
+    insert_gsi!(index_meta, index_name_match, "Gsi20", s.gsi20_name, s.gsi20_hash, s.gsi20_range);
 
     let struct_data = match data {
         syn::Data::Struct(s) => s,
@@ -97,27 +99,27 @@ pub fn derive(input: TokenStream) -> TokenStream {
                 }
             }
 
-            read_attr!(m, field, DeezPrimary, "Primary");
-            read_attr!(m, field, DeezGsi1, "Gsi1");
-            read_attr!(m, field, DeezGsi2, "Gsi2");
-            read_attr!(m, field, DeezGsi3, "Gsi3");
-            read_attr!(m, field, DeezGsi4, "Gsi4");
-            read_attr!(m, field, DeezGsi5, "Gsi5");
-            read_attr!(m, field, DeezGsi6, "Gsi6");
-            read_attr!(m, field, DeezGsi7, "Gsi7");
-            read_attr!(m, field, DeezGsi8, "Gsi8");
-            read_attr!(m, field, DeezGsi9, "Gsi9");
-            read_attr!(m, field, DeezGsi10, "Gsi10");
-            read_attr!(m, field, DeezGsi11, "Gsi11");
-            read_attr!(m, field, DeezGsi12, "Gsi12");
-            read_attr!(m, field, DeezGsi13, "Gsi13");
-            read_attr!(m, field, DeezGsi14, "Gsi14");
-            read_attr!(m, field, DeezGsi15, "Gsi15");
-            read_attr!(m, field, DeezGsi16, "Gsi16");
-            read_attr!(m, field, DeezGsi17, "Gsi17");
-            read_attr!(m, field, DeezGsi18, "Gsi18");
-            read_attr!(m, field, DeezGsi19, "Gsi19");
-            read_attr!(m, field, DeezGsi20, "Gsi20");
+            read_attr!(index_meta, field, DeezPrimary, "Primary");
+            read_attr!(index_meta, field, DeezGsi1, "Gsi1");
+            read_attr!(index_meta, field, DeezGsi2, "Gsi2");
+            read_attr!(index_meta, field, DeezGsi3, "Gsi3");
+            read_attr!(index_meta, field, DeezGsi4, "Gsi4");
+            read_attr!(index_meta, field, DeezGsi5, "Gsi5");
+            read_attr!(index_meta, field, DeezGsi6, "Gsi6");
+            read_attr!(index_meta, field, DeezGsi7, "Gsi7");
+            read_attr!(index_meta, field, DeezGsi8, "Gsi8");
+            read_attr!(index_meta, field, DeezGsi9, "Gsi9");
+            read_attr!(index_meta, field, DeezGsi10, "Gsi10");
+            read_attr!(index_meta, field, DeezGsi11, "Gsi11");
+            read_attr!(index_meta, field, DeezGsi12, "Gsi12");
+            read_attr!(index_meta, field, DeezGsi13, "Gsi13");
+            read_attr!(index_meta, field, DeezGsi14, "Gsi14");
+            read_attr!(index_meta, field, DeezGsi15, "Gsi15");
+            read_attr!(index_meta, field, DeezGsi16, "Gsi16");
+            read_attr!(index_meta, field, DeezGsi17, "Gsi17");
+            read_attr!(index_meta, field, DeezGsi18, "Gsi18");
+            read_attr!(index_meta, field, DeezGsi19, "Gsi19");
+            read_attr!(index_meta, field, DeezGsi20, "Gsi20");
         }
 
         let type_name = match &field.ty {
@@ -184,7 +186,7 @@ pub fn derive(input: TokenStream) -> TokenStream {
     let mut index_keys_match = quote! {};
     let mut index_inserts = quote! {};
 
-    for (k, v) in m.iter() {
+    for (k, v) in index_meta.iter() {
         let hash_composite = compose_key!(v.hash);
         let range_composite = compose_key!(v.range);
 

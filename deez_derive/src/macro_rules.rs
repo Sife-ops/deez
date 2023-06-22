@@ -1,7 +1,7 @@
 macro_rules! insert_index {
-    ($map: ident, $index_enum_variant_name: expr, $hash_name: expr, $range_name: expr) => {
-        $map.insert(
-            $index_enum_variant_name.to_string(),
+    ($index_meta: ident, $enum_variant_name: expr, $hash_name: expr, $range_name: expr) => {
+        $index_meta.insert(
+            $enum_variant_name.to_string(),
             IndexKeys {
                 hash: IndexKey {
                     field: $hash_name,
@@ -19,14 +19,14 @@ macro_rules! insert_index {
 pub(crate) use insert_index;
 
 macro_rules! insert_gsi {
-    ($map: ident, $index_enum_variant_name: expr, $index_name: expr, $hash_name: expr, $range_name: expr, $index_name_match: ident) => {
+    ($index_meta: ident, $index_name_match: ident, $enum_variant_name: expr, $index_name: expr, $hash_name: expr, $range_name: expr) => {
         if let Some(index_name) = $index_name {
-            insert_index!($map, $index_enum_variant_name, $hash_name.unwrap(), $range_name.unwrap());
+            insert_index!($index_meta, $enum_variant_name, $hash_name.unwrap(), $range_name.unwrap());
 
-            let index_enum_variant = format_ident!($index_enum_variant_name);
+            let enum_variant_ident = format_ident!($enum_variant_name);
             $index_name_match = quote! {
                 #$index_name_match
-                Index::#index_enum_variant => {
+                Index::#enum_variant_ident => {
                     return #index_name.to_string();
                 }
             }
@@ -56,21 +56,20 @@ macro_rules! compose_key {
 pub(crate) use compose_key;
 
 macro_rules! read_attr {
-    ($map: ident, $field: expr, $index_attr: ident, $index: expr) => {
+    ($index_meta: ident, $field: expr, $index_attr: ident, $index: expr) => {
         if let Ok(attribute) = $index_attr::from_attributes(&$field.attrs) {
             let composite = Composite {
                 position: attribute.position,
                 syn_field: $field.clone(),
             };
-            if let Some(index) = $map.get_mut($index) {
+            if let Some(index) = $index_meta.get_mut($index) {
                 match attribute.key.as_str() {
                     "hash" => index.hash.composite.push(composite),
                     "range" => index.range.composite.push(composite),
                     _ => panic!("key must be either `hash` or `range`"),
                 }
-                // } else {
-                //     panic!("unknown index: primary");
-                // }
+            } else {
+                panic!("unknown index: {}", $index);
             }
         }
     };
@@ -78,7 +77,7 @@ macro_rules! read_attr {
 
 pub(crate) use read_attr;
 
-macro_rules! deez_attrs {
+macro_rules! attr_derive {
     () => {
         // todo: cant use empty struct???
         #[derive(Attribute, Debug)]
@@ -350,4 +349,4 @@ macro_rules! deez_attrs {
     };
 }
 
-pub(crate) use deez_attrs;
+pub(crate) use attr_derive;
