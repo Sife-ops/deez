@@ -10,7 +10,7 @@ inspired by [ElectroDB](https://github.com/tywalch/electrodb).
 Define a schema for your entities using the `Deez` procedural macro. Doing so
 will derive the `From` conversion traits for your structs and the
 `HashMap<String, AttributeValue>` type used by the `aws_sdk_dynamodb` library,
-with some additional features for faciliting Single Table Design.
+with some additional features for facilitating Single Table Design.
 
 ```rust
 use aws_sdk_dynamodb::types::AttributeValue;
@@ -55,7 +55,7 @@ impl Default for Task {
 ```
 
 Now you can convert your struct to a `HashMap` that you can pass directly to the
-dynamodb client.
+DynamoDB client.
 
 ```rust
 let task = Task {
