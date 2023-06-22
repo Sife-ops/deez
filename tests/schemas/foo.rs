@@ -118,3 +118,38 @@ impl Default for Foo {
         }
     }
 }
+
+#[derive(Debug, Deez)]
+#[deez_schema(table = "foo_table", service = "foo_service", entity = "task")]
+#[deez_schema(primary_hash = "pk", primary_range = "sk")]
+#[deez_schema(gsi1_name = "gsi1", gsi1_hash = "gsi1pk", gsi1_range = "gsi1sk")]
+#[deez_schema(gsi2_name = "gsi2", gsi2_hash = "gsi2pk", gsi2_range = "gsi2sk")]
+pub struct Task {
+    #[deez_primary(key = "hash")]
+    #[deez_gsi1(key = "range", position = 1)]
+    #[deez_gsi2(key = "range", position = 1)]
+    pub task_id: String,
+    #[deez_primary(key = "range", position = 1)]
+    #[deez_gsi1(key = "hash")]
+    #[deez_gsi2(key = "range")]
+    pub project: String,
+    #[deez_primary(key = "range")]
+    #[deez_gsi1(key = "range")]
+    #[deez_gsi2(key = "hash")]
+    pub employee: String,
+    pub description: String,
+    #[deez_ignore(ignore)]
+    pub some_metadata: String,
+}
+
+impl Default for Task {
+    fn default() -> Self {
+        Task {
+            task_id: "".to_string(),
+            project: "".to_string(),
+            employee: "".to_string(),
+            description: "".to_string(),
+            some_metadata: "".to_string(),
+        }
+    }
+}
