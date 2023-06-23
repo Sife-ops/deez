@@ -259,35 +259,6 @@ pub fn derive(input: TokenStream) -> TokenStream {
             pub fn table__name(&self) -> String {
                 #table.to_string()
             }
-
-            // pub fn index__name(&self, index: Index) -> String {
-            //     match index {
-            //         #index_name_match
-            //         _ => panic!("unknown entity index: {}", index), // todo: custom error
-            //     }
-            // }
-
-            // pub fn index_key_av(&self, index: Index, key: Key) -> IndexKey<AttributeValue> {
-            //     let k = self.index_key(index, key);
-            //     IndexKey {
-            //         field: k.field,
-            //         composite: AttributeValue::S(k.composite),
-            //     }
-            // }
-
-            // pub fn index_keys_av(&self, index: Index) -> IndexKeys<AttributeValue> {
-            //     let k = self.index_keys(index);
-            //     IndexKeys {
-            //         hash: IndexKey {
-            //             field: k.hash.field,
-            //             composite: AttributeValue::S(k.hash.composite),
-            //         },
-            //         range: IndexKey {
-            //             field: k.range.field,
-            //             composite: AttributeValue::S(k.range.composite),
-            //         }
-            //     }
-            // }
         }
 
         impl From<#ident> for HashMap<String, AttributeValue> {

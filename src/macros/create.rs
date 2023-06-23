@@ -14,6 +14,6 @@ macro_rules! create {
             ])))
             .set_item(Some(inst.into()))
             .send()
-            .await?
+            .await
     }};
 }
