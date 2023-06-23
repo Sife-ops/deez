@@ -35,8 +35,8 @@ mod tests {
 
     #[test]
     fn index_names() {
-        assert_eq!(Foo::gsi1_name(), "gsi1");
-        assert_eq!(Foo::gsi2_name(), "gsi2");
+        assert_eq!(Foo::gsi1_name(), "foo_gsi1");
+        assert_eq!(Foo::gsi2_name(), "foo_gsi2");
     }
 
     #[test]
