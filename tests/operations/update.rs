@@ -27,7 +27,6 @@ async fn update() -> Result<()> {
         ..Default::default()
     }
     .primary_keys();
-    // .index_keys_av(Index::Primary);
 
     let u: HashMap<String, AttributeValue> = Task {
         description: "lol".to_string(),
@@ -38,8 +37,8 @@ async fn update() -> Result<()> {
     c.update_item()
         .table_name(Task::table_name())
         .set_key(Some(HashMap::from([
-            (k.hash.field.clone(), k.hash.av()),
-            (k.range.field.clone(), k.range.av()),
+            (k.hash.field(), k.hash.av()),
+            (k.range.field(), k.range.av()),
         ])))
         .update_expression("SET #u = :u")
         .set_expression_attribute_names(Some(HashMap::from([(
@@ -59,8 +58,8 @@ async fn update() -> Result<()> {
             .table_name(Task::table_name())
             .key_condition_expression("#pk = :pk and begins_with(#sk, :sk)")
             .set_expression_attribute_names(Some(HashMap::from([
-                ("#pk".to_string(), k.hash.field.clone()),
-                ("#sk".to_string(), k.range.field.clone()),
+                ("#pk".to_string(), k.hash.field()),
+                ("#sk".to_string(), k.range.field()),
             ])))
             .set_expression_attribute_values(Some(HashMap::from([
                 (":pk".to_string(), k.hash.av()),
