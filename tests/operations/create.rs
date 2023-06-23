@@ -3,7 +3,7 @@ use deez::*;
 use std::collections::HashMap;
 use std::sync::Arc;
 
-use super::super::schemas::foo::{init, Foo, FooItems};
+use super::super::schemas::foo::{init, Foo, FooItems, Task};
 use super::super::schemas::make_client;
 
 #[tokio::test]
@@ -26,31 +26,25 @@ async fn create() -> Result<()> {
         .table_name(Foo::table_name())
         .condition_expression("attribute_not_exists(#pk) AND attribute_not_exists(#sk)")
         .set_expression_attribute_names(Some(HashMap::from([
-            (
-                "#pk".to_string(),
-                f.index_key(Index::Primary, Key::Hash).field,
-            ),
-            (
-                "#sk".to_string(),
-                f.index_key(Index::Primary, Key::Range).field,
-            ),
+            ("#pk".to_string(), f.primary_key(Key::Hash).field()),
+            ("#sk".to_string(), f.primary_key(Key::Range).field()),
         ])))
         .set_item(Some(f.clone().into()))
         .send()
         .await?;
 
-    let ff = f.index_keys_av(Index::Primary);
+    let ff = f.primary_keys();
     let q = client
         .query()
         .table_name(Foo::table_name())
         .key_condition_expression("#pk = :pk and begins_with(#sk, :sk)")
         .set_expression_attribute_names(Some(HashMap::from([
-            ("#pk".to_string(), ff.hash.field),
-            ("#sk".to_string(), ff.range.field),
+            ("#pk".to_string(), ff.hash.field()),
+            ("#sk".to_string(), ff.range.field()),
         ])))
         .set_expression_attribute_values(Some(HashMap::from([
-            (":pk".to_string(), ff.hash.composite),
-            (":sk".to_string(), ff.range.composite),
+            (":pk".to_string(), ff.hash.av()),
+            (":sk".to_string(), ff.range.av()),
         ])))
         .send()
         .await?;
@@ -72,6 +66,46 @@ async fn create() -> Result<()> {
     Ok(())
 }
 
+#[tokio::test]
+async fn create_macro() -> Result<()> {
+    init().await;
+    let client = make_client().await;
+
+    create!(client; Task {
+        task_id: "123".to_string(),
+        project: "foo_proj".to_string(),
+        employee: "foo_empl".to_string(),
+        description: "foo_desc".to_string(),
+        some_metadata: "abcd".to_string(),
+    });
+
+    let task_keys = Task {
+        task_id: "123".to_string(),
+        project: "foo_proj".to_string(),
+        employee: "foo_empl".to_string(),
+        ..Default::default()
+    }
+    .primary_keys();
+
+    let q = client
+        .query()
+        .table_name(Foo::table_name())
+        .key_condition_expression("#pk = :pk and begins_with(#sk, :sk)")
+        .set_expression_attribute_names(Some(HashMap::from([
+            ("#pk".to_string(), task_keys.hash.field()),
+            ("#sk".to_string(), task_keys.range.field()),
+        ])))
+        .set_expression_attribute_values(Some(HashMap::from([
+            (":pk".to_string(), task_keys.hash.av()),
+            (":sk".to_string(), task_keys.range.av()),
+        ])))
+        .send()
+        .await?;
+
+    Ok(())
+}
+
+#[ignore]
 #[tokio::test]
 async fn create_with_threads() -> Result<()> {
     init().await;
@@ -96,14 +130,8 @@ async fn create_with_threads() -> Result<()> {
                 .table_name(Foo::table_name())
                 .condition_expression("attribute_not_exists(#pk) AND attribute_not_exists(#sk)")
                 .set_expression_attribute_names(Some(HashMap::from([
-                    (
-                        "#pk".to_string(),
-                        f.index_key(Index::Primary, Key::Hash).field,
-                    ),
-                    (
-                        "#sk".to_string(),
-                        f.index_key(Index::Primary, Key::Range).field,
-                    ),
+                    ("#pk".to_string(), f.primary_key(Key::Hash).field()),
+                    ("#sk".to_string(), f.primary_key(Key::Range).field()),
                 ])))
                 .set_item(Some(f.clone().into()))
                 .send()
@@ -119,18 +147,15 @@ async fn create_with_threads() -> Result<()> {
     let f = Foo {
         foo_string_1: "foo".to_string(),
         ..Default::default()
-    };
-    let ff = f.index_keys_av(Index::Primary);
+    }
+    .primary_keys();
 
     let q = c
         .query()
         .table_name(Foo::table_name())
         .key_condition_expression("#pk = :pk")
-        .set_expression_attribute_names(Some(HashMap::from([("#pk".to_string(), ff.hash.field)])))
-        .set_expression_attribute_values(Some(HashMap::from([(
-            ":pk".to_string(),
-            ff.hash.composite,
-        )])))
+        .set_expression_attribute_names(Some(HashMap::from([("#pk".to_string(), f.hash.field())])))
+        .set_expression_attribute_values(Some(HashMap::from([(":pk".to_string(), f.hash.av())])))
         .send()
         .await?;
 

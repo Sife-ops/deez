@@ -19,8 +19,8 @@ pub mod mocks {
     #[derive(Debug, Deez)]
     #[deez_schema(table = "foo_table", service = "foo_service", entity = "foo_entity")]
     #[deez_schema(primary_hash = "pk", primary_range = "sk")]
-    #[deez_schema(gsi1_name = "gsi1", gsi1_hash = "gsi1pk", gsi1_range = "gsi1sk")]
-    #[deez_schema(gsi2_name = "gsi2", gsi2_hash = "gsi2pk", gsi2_range = "gsi2sk")]
+    #[deez_schema(gsi1_name = "foo_gsi1", gsi1_hash = "gsi1pk", gsi1_range = "gsi1sk")]
+    #[deez_schema(gsi2_name = "foo_gsi2", gsi2_hash = "gsi2pk", gsi2_range = "gsi2sk")]
     pub struct Foo {
         #[deez_primary(key = "hash")]
         pub foo_string_1: String,
@@ -57,8 +57,8 @@ pub mod mocks {
     #[derive(Debug, Deez)]
     #[deez_schema(table = "TaskTable", service = "TaskService", entity = "Task")]
     #[deez_schema(primary_hash = "pk", primary_range = "sk")]
-    #[deez_schema(gsi1_name = "gsi1", gsi1_hash = "gsi1pk", gsi1_range = "gsi1sk")]
-    #[deez_schema(gsi2_name = "gsi2", gsi2_hash = "gsi2pk", gsi2_range = "gsi2sk")]
+    #[deez_schema(gsi1_name = "task_gsi1", gsi1_hash = "gsi1pk", gsi1_range = "gsi1sk")]
+    #[deez_schema(gsi2_name = "task_gsi2", gsi2_hash = "gsi2pk", gsi2_range = "gsi2sk")]
     pub struct Task {
         #[deez_primary(key = "hash")]
         #[deez_gsi1(key = "range", position = 1)]

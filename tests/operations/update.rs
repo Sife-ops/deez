@@ -23,14 +23,8 @@ async fn update() {
         .table_name(Task::table_name())
         .condition_expression("attribute_not_exists(#pk) AND attribute_not_exists(#sk)")
         .set_expression_attribute_names(Some(HashMap::from([
-            (
-                "#pk".to_string(),
-                t.index_key(Index::Primary, Key::Hash).field,
-            ),
-            (
-                "#sk".to_string(),
-                t.index_key(Index::Primary, Key::Range).field,
-            ),
+            ("#pk".to_string(), t.primary_key(Key::Hash).field),
+            ("#sk".to_string(), t.primary_key(Key::Range).field),
         ])))
         .set_item(Some(t.into()))
         .send()
@@ -43,7 +37,8 @@ async fn update() {
         employee: "ccc".to_string(),
         ..Default::default()
     }
-    .index_keys_av(Index::Primary);
+    .primary_keys();
+    // .index_keys_av(Index::Primary);
 
     let u: HashMap<String, AttributeValue> = Task {
         description: "lol".to_string(),
@@ -54,8 +49,8 @@ async fn update() {
     c.update_item()
         .table_name(Task::table_name())
         .set_key(Some(HashMap::from([
-            (k.hash.field.clone(), k.hash.composite.clone()),
-            (k.range.field.clone(), k.range.composite.clone()),
+            (k.hash.field.clone(), k.hash.av()),
+            (k.range.field.clone(), k.range.av()),
         ])))
         .update_expression("SET #u = :u")
         .set_expression_attribute_names(Some(HashMap::from([(
@@ -70,18 +65,17 @@ async fn update() {
         .await
         .unwrap();
 
-
     let q = c
         .query()
         .table_name(Task::table_name())
         .key_condition_expression("#pk = :pk and begins_with(#sk, :sk)")
         .set_expression_attribute_names(Some(HashMap::from([
-            ("#pk".to_string(), k.hash.field),
-            ("#sk".to_string(), k.range.field),
+            ("#pk".to_string(), k.hash.field.clone()),
+            ("#sk".to_string(), k.range.field.clone()),
         ])))
         .set_expression_attribute_values(Some(HashMap::from([
-            (":pk".to_string(), k.hash.composite),
-            (":sk".to_string(), k.range.composite),
+            (":pk".to_string(), k.hash.av()),
+            (":sk".to_string(), k.range.av()),
         ])))
         .send()
         .await
@@ -93,5 +87,4 @@ async fn update() {
     let f = r.first().unwrap();
 
     assert_eq!(f.description, "lol".to_string());
-
 }
