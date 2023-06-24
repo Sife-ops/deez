@@ -1,7 +1,7 @@
 mod macros;
 
 use attribute_derive::Attribute;
-use macros::{attr_derive, compose_key, insert_gsi, insert_index, read_attr};
+use macros::attr_derive;
 use proc_macro::{self, TokenStream};
 use quote::{format_ident, quote, ToTokens};
 use std::{collections::HashMap, fmt::Debug};
@@ -61,6 +61,39 @@ pub fn derive(input: TokenStream) -> TokenStream {
     let mut index_meta = HashMap::new();
     let mut index_name_fns = quote! {};
 
+    macro_rules! insert_index {
+        ($index_meta: ident, $index: expr, $hash_name: expr, $range_name: expr) => {
+            $index_meta.insert(
+                $index.to_string(),
+                IndexKeys {
+                    hash: IndexKey {
+                        field: $hash_name,
+                        ..Default::default()
+                    },
+                    range: IndexKey {
+                        field: $range_name,
+                        ..Default::default()
+                    },
+                },
+            );
+        };
+    }
+
+    macro_rules! insert_gsi {
+        ($index_meta: ident, $index_name_fns: ident, $index: expr, $index_name: expr, $hash_name: expr, $range_name: expr) => {
+            if let Some(index_name) = $index_name {
+                insert_index!($index_meta, $index, $hash_name.unwrap(), $range_name.unwrap());
+                let index_name_fn_name = format_ident!("{}_name", $index);
+                $index_name_fns = quote! {
+                    #$index_name_fns
+                    pub fn #index_name_fn_name() -> String {
+                        #index_name.to_string()
+                    }
+                };
+            }
+        };
+    }
+
     insert_index!(index_meta, "primary", s.primary_hash, s.primary_range);
     insert_gsi!(index_meta, index_name_fns, "gsi1", s.gsi1_name, s.gsi1_hash, s.gsi1_range);
     insert_gsi!(index_meta, index_name_fns, "gsi2", s.gsi2_name, s.gsi2_hash, s.gsi2_range);
@@ -97,6 +130,26 @@ pub fn derive(input: TokenStream) -> TokenStream {
                 if attribute.ignore {
                     continue;
                 }
+            }
+
+            macro_rules! read_attr {
+                ($index_meta: ident, $field: expr, $index_attr: ident, $index: expr) => {
+                    if let Ok(attribute) = $index_attr::from_attributes(&$field.attrs) {
+                        let composite = Composite {
+                            position: attribute.position,
+                            syn_field: $field.clone(),
+                        };
+                        if let Some(index) = $index_meta.get_mut($index) {
+                            match attribute.key.as_str() {
+                                "hash" => index.hash.composite.push(composite),
+                                "range" => index.range.composite.push(composite),
+                                _ => panic!("key must be either `hash` or `range`"),
+                            }
+                        } else {
+                            panic!("unknown index: {}", $index);
+                        }
+                    }
+                };
             }
 
             read_attr!(index_meta, field, DeezPrimary, "primary");
@@ -187,35 +240,68 @@ pub fn derive(input: TokenStream) -> TokenStream {
     let mut index_inserts = quote! {};
 
     for (k, v) in index_meta.iter() {
-        let hash_composite = compose_key!(v.hash);
-        let range_composite = compose_key!(v.range);
-
         let service = s.service.clone();
         let entity = s.entity.clone();
         let hash_field = v.hash.field.clone();
         let range_field = v.range.field.clone();
 
+        macro_rules! compose_key {
+            ($index_key: expr) => {{
+                let mut c = quote! {};
+
+                for (i, _) in $index_key.composite.iter().enumerate() {
+                    let composite = match $index_key.composite.iter().find(|c| c.position == i) {
+                        Some(c) => c,
+                        None => panic!("missing composite for {} at position: {}", $index_key.field, i),
+                    };
+                    let field_ident = match composite.syn_field.ident.as_ref() {
+                        Some(i) => i,
+                        None => panic!("could not parse field ident for index: {}", $index_key.field),
+                    };
+                    let field_name = field_ident.to_string();
+
+                    c = quote! {
+                        #c
+                        {
+                            let value_string = self.#field_ident.to_string();
+                            if value_string == "" || value_string == "0" {
+                                return index_key;
+                            }
+                            index_key.composite.push_str(&format!("#{}_{}", #field_name, value_string));
+                        }
+                    };
+                }
+
+                c = quote! {
+                    #c
+                    return index_key;
+                };
+
+                c
+            }};
+        }
+
+        let composed_hash = compose_key!(v.hash);
+        let composed_range = compose_key!(v.range);
+
         let index_key_fn_name = format_ident!("{}_key", k);
         index_key_fns = quote! {
             #index_key_fns
             pub fn #index_key_fn_name(&self, key: Key) -> IndexKey {
-                let mut composed = String::new();
+                let mut index_key = IndexKey {
+                    ..Default::default()
+                };
+
                 match key {
                     Key::Hash => {
-                        composed.push_str(&format!("${}#{}", #service, #entity));
-                        #hash_composite
-                        return IndexKey {
-                            field: #hash_field.to_string(),
-                            composite: composed,
-                        }
+                        index_key.field = #hash_field.to_string();
+                        index_key.composite.push_str(&format!("${}#{}", #service, #entity));
+                        #composed_hash
                     }
                     Key::Range => {
-                        composed.push_str(&format!("${}", #entity));
-                        #range_composite
-                        return IndexKey {
-                            field: #range_field.to_string(),
-                            composite: composed,
-                        }
+                        index_key.field = #range_field.to_string();
+                        index_key.composite.push_str(&format!("${}", #entity));
+                        #composed_range
                     }
                 }
             }

@@ -6,7 +6,7 @@ pub struct IndexKeys {
     pub range: IndexKey,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Default)]
 pub struct IndexKey {
     pub field: String,
     pub composite: String,
@@ -113,6 +113,30 @@ mod tests {
             assert_eq!(
                 b["gsi2sk"],
                 AttributeValue::S("$Task#project_foo_project#task_id_1a2b3c4d".to_string())
+            );
+        }
+    }
+
+    #[test]
+    fn partial_keys() {
+        let mut task = Task {
+            task_id: "1a2b3c4d".to_string(),
+            description: "nothin' but chillin' 20's".to_string(),
+            some_metadata: "baz".to_string(),
+            ..Default::default()
+        };
+
+        {
+            let map: HashMap<String, AttributeValue> = task.clone().into();
+            assert_eq!(map["sk"], AttributeValue::S("$Task".to_string()));
+        }
+
+        {
+            task.employee = "e42069".to_string();
+            let map: HashMap<String, AttributeValue> = task.clone().into();
+            assert_eq!(
+                map["sk"],
+                AttributeValue::S("$Task#employee_e42069".to_string())
             );
         }
     }

@@ -11,18 +11,16 @@ async fn delete() -> Result<()> {
     init().await;
     let c = make_client().await;
 
-    ////////////////////////////////////////////////////////////////////////////
-
     batch_write!(
         c;
         writes:
-            Task{
+            Task {
                 task_id: "aaa".to_string(),
                 project: "bbb".to_string(),
                 employee: "ccc".to_string(),
                 ..Default::default()
             },
-            Task{
+            Task {
                 task_id: "aaa".to_string(),
                 project: "hhh".to_string(),
                 employee: "iii".to_string(),
@@ -31,37 +29,16 @@ async fn delete() -> Result<()> {
         deletes:
     )?;
 
-    macro_rules! remove {
-        (
-            $client:expr;
-            $ent:expr
-        ) => {{
-            let ent = $ent;
-            let keys = ent.primary_keys();
+    ////////////////////////////////////////////////////////////////////////////
 
-            $client
-                .delete_item()
-                .table_name(ent.table__name())
-                .condition_expression("attribute_exists(#pk) AND attribute_exists(#sk)")
-                .set_expression_attribute_names(Some(HashMap::from([
-                    ("#pk".to_string(), keys.hash.field()),
-                    ("#sk".to_string(), keys.range.field()),
-                ])))
-                .set_key(Some(HashMap::from([
-                    (keys.hash.field(), keys.hash.av()),
-                    (keys.range.field(), keys.range.av()),
-                ])))
-                .send()
-                .await
-        }};
-    }
-
-    remove!(c; Task{
+    remove!(c; Task {
         task_id: "aaa".to_string(),
         project: "hhh".to_string(),
         employee: "iii".to_string(),
         ..Default::default()
     })?;
+
+    ////////////////////////////////////////////////////////////////////////////
 
     let keys = Task {
         task_id: "aaa".to_string(),

@@ -34,19 +34,19 @@ async fn batch_write() -> Result<()> {
     batch_write!(
         c;
         writes:
-            Task{
+            Task {
                 task_id: "aaa".to_string(),
                 project: "bbb".to_string(),
                 employee: "ccc".to_string(),
                 ..Default::default()
             },
-            Task{
+            Task {
                 task_id: "aaa".to_string(),
                 project: "fff".to_string(),
                 employee: "ggg".to_string(),
                 ..Default::default()
             },
-            Task{
+            Task {
                 task_id: "aaa".to_string(),
                 project: "hhh".to_string(),
                 employee: "iii".to_string(),
@@ -67,20 +67,20 @@ async fn batch_write() -> Result<()> {
     batch_write!(
         c;
         writes: 
-            Task{
+            Task {
                 task_id: "aaa".to_string(),
                 project: "jjj".to_string(),
                 employee: "kkk".to_string(),
                 ..Default::default()
             };
         deletes:
-            Task{
+            Task {
                 task_id: "aaa".to_string(),
                 project: "bbb".to_string(),
                 employee: "ccc".to_string(),
                 ..Default::default()
             },
-            Task{
+            Task {
                 task_id: "aaa".to_string(),
                 project: "hhh".to_string(),
                 employee: "iii".to_string(),

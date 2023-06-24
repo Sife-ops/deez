@@ -54,7 +54,7 @@ pub mod mocks {
         }
     }
 
-    #[derive(Debug, Deez)]
+    #[derive(Debug, Deez, Clone)]
     #[deez_schema(table = "TaskTable", service = "TaskService", entity = "Task")]
     #[deez_schema(primary_hash = "pk", primary_range = "sk")]
     #[deez_schema(gsi1_name = "task_gsi1", gsi1_hash = "gsi1pk", gsi1_range = "gsi1sk")]
