@@ -75,13 +75,13 @@ println!("{:#?}", map);
 //     "pk": S("$TaskService#Task#task_id_1885ea1d-e296-4c0f-9fbf-863b1318c698"), <-
 //     "sk": S("$Task#employee_e42069#project_foo_project"), <-
 //     "gsi1pk": S("$TaskService#Task#project_foo_project"), <-
-//     "gsi1sk": S("$Task#employee_e42069#task_id_1a2b3c4d"), <-
+//     "gsi1sk": S("$Task#employee_e42069#task_id_1885ea1d-e296-4c0f-9fbf-863b1318c698"), <-
 //     "gsi2pk": S("$TaskService#Task#employee_e42069"), <-
-//     "gsi2sk": S("$Task#project_foo_project#task_id_1a2b3c4d"), <-
-//     "employee": S("e42069"),
+//     "gsi2sk": S("$Task#project_foo_project#task_id_1885ea1d-e296-4c0f-9fbf-863b1318c698"), <-
+//     "task_id": S("1885ea1d-e296-4c0f-9fbf-863b1318c698"),
 //     "project": S("foo_project"),
+//     "employee": S("e42069"),
 //     "description": S("nothin' but chillin' 20's"),
-//     "task_id": S("1a2b3c4d"),
 // }
 ```
 
