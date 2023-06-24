@@ -140,9 +140,9 @@ pub fn derive(input: TokenStream) -> TokenStream {
                     #field_reads
                     #field_ident: item
                         .get(#field_name)
-                        .unwrap() // todo: sus
+                        .unwrap_or(&AttributeValue::S("".to_string())) // todo: sus
                         .as_s()
-                        .unwrap()
+                        .unwrap_or(&"".to_string())
                         .clone(),
                 };
             }
@@ -155,12 +155,12 @@ pub fn derive(input: TokenStream) -> TokenStream {
                     #field_reads
                     #field_ident: item
                         .get(#field_name)
-                        .unwrap()
+                        .unwrap_or(&AttributeValue::N("0".to_string()))
                         .as_n()
-                        .unwrap()
+                        .unwrap_or(&"0".to_string())
                         .clone()
                         .parse::<f64>()
-                        .unwrap(),
+                        .unwrap_or(0.0),
                 };
             }
             "bool" => {
@@ -172,9 +172,9 @@ pub fn derive(input: TokenStream) -> TokenStream {
                     #field_reads
                     #field_ident: item
                         .get(#field_name)
-                        .unwrap()
+                        .unwrap_or(&AttributeValue::Bool(false))
                         .as_bool()
-                        .unwrap()
+                        .unwrap_or(&false)
                         .clone(),
                 };
             }
