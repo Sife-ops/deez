@@ -1,7 +1,7 @@
 macro_rules! insert_index {
-    ($index_meta: ident, $enum_variant_name: expr, $hash_name: expr, $range_name: expr) => {
+    ($index_meta: ident, $index: expr, $hash_name: expr, $range_name: expr) => {
         $index_meta.insert(
-            $enum_variant_name.to_string(),
+            $index.to_string(),
             IndexKeys {
                 hash: IndexKey {
                     field: $hash_name,
@@ -19,11 +19,11 @@ macro_rules! insert_index {
 pub(crate) use insert_index;
 
 macro_rules! insert_gsi {
-    ($index_meta: ident, $index_name_fns: ident, $enum_variant_name: expr, $index_name: expr, $hash_name: expr, $range_name: expr) => {
+    ($index_meta: ident, $index_name_fns: ident, $index: expr, $index_name: expr, $hash_name: expr, $range_name: expr) => {
         if let Some(index_name) = $index_name {
-            insert_index!($index_meta, $enum_variant_name, $hash_name.unwrap(), $range_name.unwrap());
+            insert_index!($index_meta, $index, $hash_name.unwrap(), $range_name.unwrap());
 
-            let index_name_fn_name = format_ident!("{}_name", $enum_variant_name);
+            let index_name_fn_name = format_ident!("{}_name", $index);
             $index_name_fns = quote! {
                 #$index_name_fns
                 pub fn #index_name_fn_name() -> String {
