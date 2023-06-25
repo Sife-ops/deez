@@ -13,6 +13,7 @@ async fn create() -> Result<()> {
     init().await;
     let client = make_client().await;
 
+    // task
     create!(client; Task {
         task_id: "123".to_string(),
         project: "foo_proj".to_string(),
@@ -50,12 +51,51 @@ async fn create() -> Result<()> {
 
     // println!("{:#?}", tasks);
 
-    let first = tasks.first().unwrap();
-    assert_eq!(first.task_id, "123");
-    assert_eq!(first.project, "foo_proj");
-    assert_eq!(first.employee, "foo_empl");
-    assert_eq!(first.description, "foo_desc");
-    assert_eq!(first.some_metadata, "");
+    {
+        let first = tasks.first().unwrap();
+        assert_eq!(first.task_id, "123");
+        assert_eq!(first.project, "foo_proj");
+        assert_eq!(first.employee, "foo_empl");
+        assert_eq!(first.description, "foo_desc");
+        assert_eq!(first.some_metadata, "");
+    }
+
+    // foo
+    create!(client; Foo {
+        ..Default::default()
+    })?;
+
+    let foo_keys = Foo {
+        ..Default::default()
+    }
+    .primary_keys();
+
+    let foos = vec_from_query!(
+        client
+            .query()
+            .table_name(Foo::table_name())
+            .key_condition_expression("#pk = :pk and begins_with(#sk, :sk)")
+            .set_expression_attribute_names(Some(HashMap::from([
+                ("#pk".to_string(), foo_keys.hash.field()),
+                ("#sk".to_string(), foo_keys.range.field()),
+            ])))
+            .set_expression_attribute_values(Some(HashMap::from([
+                (":pk".to_string(), foo_keys.hash.av()),
+                (":sk".to_string(), foo_keys.range.av()),
+            ])))
+            .send()
+            .await?
+
+        => FooItems
+    );
+
+    // println!("{:#?}", foos);
+
+    {
+        let first = foos.first().unwrap();
+        assert_eq!(first.foo_nested_1.baz_1.baz_string_1, "baz");
+        // todo: other fields
+    }
 
     Ok(())
 }
