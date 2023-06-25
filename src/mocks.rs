@@ -4,6 +4,7 @@ pub mod mocks {
     use crate::*;
     use aws_sdk_dynamodb::types::AttributeValue;
     use aws_sdk_dynamodb::Client;
+    use aws_smithy_types::Blob;
     use std::collections::HashMap;
 
     pub async fn make_client() -> Client {
@@ -14,6 +15,24 @@ pub mod mocks {
                 .load()
                 .await,
         )
+    }
+
+    #[derive(Debug, Default, Deez)]
+    pub struct Buz {
+        #[deez_vec(dynamo_type = "list")]
+        pub buz_vec_1: Vec<String>,
+        #[deez_vec(dynamo_type = "list")]
+        pub buz_vec_2: Vec<f64>,
+        #[deez_vec(dynamo_type = "list")]
+        pub buz_vec_3: Vec<Blob>,
+        #[deez_vec(dynamo_type = "list")]
+        pub buz_vec_4: Vec<Baz>,
+        #[deez_vec(dynamo_type = "set")]
+        pub buz_vec_5: Vec<String>,
+        #[deez_vec(dynamo_type = "set")]
+        pub buz_vec_6: Vec<f64>,
+        #[deez_vec(dynamo_type = "set")]
+        pub buz_vec_7: Vec<Blob>,
     }
 
     #[derive(Debug, Deez)]

@@ -1,5 +1,11 @@
 macro_rules! attr_derive {
     () => {
+        #[derive(Attribute, Debug)]
+        #[attribute(ident = deez_vec)]
+        struct DeezVec {
+            dynamo_type: String,
+        }
+
         // todo: cant use empty struct???
         #[derive(Attribute, Debug)]
         #[attribute(ident = deez_ignore)]

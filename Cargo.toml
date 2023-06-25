@@ -20,3 +20,4 @@ aws-config = "0.55.3"
 tokio = { version = "1", features = ["macros"] }
 chrono = "0.4.26"
 anyhow = "1.0.71"
+aws-smithy-types = "0.55.3"

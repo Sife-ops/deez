@@ -31,6 +31,7 @@ pub enum Key {
 mod tests {
     use crate::mocks::mocks::*;
     use aws_sdk_dynamodb::types::AttributeValue;
+    use aws_smithy_types::Blob;
     use std::collections::HashMap;
 
     #[test]
@@ -158,5 +159,33 @@ mod tests {
                 AttributeValue::S("$Task#employee_e42069".to_string())
             );
         }
+    }
+
+    #[test]
+    fn list_set() {
+        let a = Buz {
+            buz_vec_1: vec!["a".to_string(), "b".to_string()],
+            buz_vec_2: vec![0.1, 0.2],
+            buz_vec_3: vec![Blob::new([1]), Blob::new([2])],
+            buz_vec_4: vec![
+                Baz {
+                    ..Default::default()
+                },
+                Baz {
+                    ..Default::default()
+                },
+            ],
+            buz_vec_5: vec!["aa".to_string(), "bb".to_string()],
+            buz_vec_6: vec![0.1, 0.2],
+            buz_vec_7: vec![Blob::new([1]),Blob::new([2])],
+        };
+
+        let b: &HashMap<String, AttributeValue> = &a.into();
+        println!("{:#?}", b);
+
+        let c: Buz = b.into();
+        println!("{:#?}", c);
+
+        // todo: assert
     }
 }

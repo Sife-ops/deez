@@ -1,12 +1,17 @@
+use super::super::schemas::foo::{init, Foo, FooItems, Task};
+use super::super::schemas::make_client;
+use crate::schemas::foo::TaskItems;
 use anyhow::{Ok, Result};
 use deez::*;
 use std::collections::HashMap;
 use std::sync::Arc;
 
-use crate::schemas::foo::TaskItems;
+#[tokio::test]
+async fn temp() -> Result<()> {
+    // let a = AttributeValue::
 
-use super::super::schemas::foo::{init, Foo, FooItems, Task};
-use super::super::schemas::make_client;
+    Ok(())
+}
 
 #[tokio::test]
 async fn create() -> Result<()> {
