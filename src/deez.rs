@@ -55,6 +55,7 @@ mod tests {
             let b: HashMap<String, AttributeValue> = a.into();
             // println!("{:#?}", b);
 
+            // keys
             assert_eq!(
                 b["pk"],
                 AttributeValue::S("$foo_service#foo_entity#foo_string_1_aaa".to_string())
@@ -76,6 +77,24 @@ mod tests {
                 AttributeValue::S("$foo_service#foo_entity#foo_string_5_eee".to_string())
             );
             assert_eq!(b["gsi2sk"], AttributeValue::S("$foo_entity".to_string()));
+
+            // nested
+            assert_eq!(
+                b["foo_nested_1"],
+                AttributeValue::M(
+                    Bar {
+                        bar_string_1: "bar".to_string(),
+                        bar_string_2: "barbar".to_string(),
+                        baz_1: Baz {
+                            baz_string_1: "baz".to_string(),
+                            baz_string_2: "bazbaz".to_string(),
+                        },
+                    }
+                    .into()
+                )
+            )
+
+            // todo: other fields
         }
 
         {

@@ -17,6 +17,41 @@ pub mod mocks {
     }
 
     #[derive(Debug, Deez)]
+    pub struct Baz {
+        pub baz_string_1: String,
+        pub baz_string_2: String,
+    }
+
+    impl Default for Baz {
+        fn default() -> Self {
+            Baz {
+                baz_string_1: "baz".to_string(),
+                baz_string_2: "bazbaz".to_string(),
+            }
+        }
+    }
+
+    #[derive(Debug, Deez)]
+    pub struct Bar {
+        pub bar_string_1: String,
+        pub bar_string_2: String,
+        pub baz_1: Baz,
+    }
+
+    impl Default for Bar {
+        fn default() -> Self {
+            Bar {
+                bar_string_1: "bar".to_string(),
+                bar_string_2: "barbar".to_string(),
+                baz_1: Baz {
+                    ..Default::default()
+                },
+            }
+        }
+    }
+
+    // todo: ignore snake case for this
+    #[derive(Debug, Deez)]
     #[deez_schema(table = "foo_table", service = "foo_service", entity = "foo_entity")]
     #[deez_schema(primary_hash = "pk", primary_range = "sk")]
     #[deez_schema(gsi1_name = "foo_gsi1", gsi1_hash = "gsi1pk", gsi1_range = "gsi1sk")]
@@ -37,6 +72,7 @@ pub mod mocks {
         #[deez_gsi1(key = "range")]
         pub foo_num1: f64,
         pub foo_bool1: bool,
+        pub foo_nested_1: Bar,
     }
 
     impl Default for Foo {
@@ -50,6 +86,9 @@ pub mod mocks {
                 foo_string_6: "".to_string(),
                 foo_num1: 69.0,
                 foo_bool1: true,
+                foo_nested_1: Bar {
+                    ..Default::default()
+                },
             }
         }
     }
