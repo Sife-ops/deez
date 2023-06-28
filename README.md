@@ -27,15 +27,15 @@ pub struct Task {
     #[deez_primary(key = "hash")]
     #[deez_gsi1(key = "range", position = 1)]
     #[deez_gsi2(key = "range", position = 1)]
-    pub task_id: String,
+    pub task_id: Option<String>,
     #[deez_primary(key = "range", position = 1)]
     #[deez_gsi1(key = "hash")]
     #[deez_gsi2(key = "range")]
-    pub project: String,
+    pub project: Option<String>,
     #[deez_primary(key = "range")]
     #[deez_gsi1(key = "range")]
     #[deez_gsi2(key = "hash")]
-    pub employee: String,
+    pub employee: Option<String>,
     pub description: String,
     #[deez_ignore(ignore)]
     pub some_metadata: String,
@@ -44,9 +44,9 @@ pub struct Task {
 impl Default for Task {
     fn default() -> Self {
         Task {
-            task_id: Uuid::new_v4().to_string(),
-            project: "".to_string(),
-            employee: "".to_string(),
+            task_id: Some(Uuid::new_v4().to_string()),
+            project: Some("".to_string()),
+            employee: Some("".to_string()),
             description: "".to_string(),
             some_metadata: "".to_string(),
         }
@@ -59,8 +59,8 @@ DynamoDB client.
 
 ```rust
 let task = Task {
-    project: "foo_project".to_string(),
-    employee: "e42069".to_string(),
+    project: Some("foo_project".to_string()),
+    employee: Some("e42069".to_string()),
     description: "nothin' but chillin' 20's".to_string(),
     some_metadata: "baz".to_string(),
     ..Default::default()
@@ -109,8 +109,8 @@ async fn main() -> Result<()> {
     create!(
         client;
         Task {
-            project: "foo_project".to_string(),
-            employee: "e42069".to_string(),
+            project: Some("foo_project".to_string()),
+            employee: Some("e42069".to_string()),
             description: "nothin' but chillin' 20's".to_string(),
             some_metadata: "baz".to_string(),
             ..Default::default()
@@ -118,9 +118,9 @@ async fn main() -> Result<()> {
     )?;
 
     let keys = Task {
-        task_id: "1a2b3c4d".to_string(),
-        project: "foo_project".to_string(),
-        employee: "e42069".to_string(),
+        task_id: Some("1a2b3c4d".to_string()),
+        project: Some("foo_project".to_string()),
+        employee: Some("e42069".to_string()),
         ..Default::default()
     }
     .primary_keys();
@@ -151,10 +151,3 @@ async fn main() -> Result<()> {
     Ok(())
 }
 ```
-
-## Getting Shwifty (Aware)
-
-I highly recommend you peruse the `tests` folder for more usage examples, as the
-generated docs for macros won't be very helpful.
-
-<!-- Read the full docs on [docs.rs](https://docs.rs/deez/0.1.0/deez/struct.Deez.html) -->

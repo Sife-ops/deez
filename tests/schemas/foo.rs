@@ -149,46 +149,13 @@ impl Default for Bar {
     }
 }
 
-#[derive(Debug, Deez, Clone)]
+#[derive(Debug, Deez, Default)]
 #[deez_schema(table = "foo_table", service = "foo_service", entity = "foo_entity")]
 #[deez_schema(primary_hash = "pk", primary_range = "sk")]
-#[deez_schema(gsi1_name = "foo_gsi1", gsi1_hash = "gsi1pk", gsi1_range = "gsi1sk")]
-#[deez_schema(gsi2_name = "foo_gsi2", gsi2_hash = "gsi2pk", gsi2_range = "gsi2sk")]
 pub struct Foo {
     #[deez_primary(key = "hash")]
-    pub foo_string_1: String,
-    #[deez_primary(key = "range")]
-    pub foo_string_2: String,
-    #[deez_primary(key = "range", position = 1)]
-    pub foo_string_3: String,
-    #[deez_gsi1(key = "hash")]
-    pub foo_string_4: String,
-    #[deez_gsi2(key = "hash")]
-    pub foo_string_5: String,
-    #[deez_ignore(ignore)]
-    pub foo_string_6: String,
-    #[deez_gsi1(key = "range")]
-    pub foo_num1: f64,
-    pub foo_bool1: bool,
-    pub foo_nested_1: Bar,
-}
-
-impl Default for Foo {
-    fn default() -> Self {
-        Foo {
-            foo_string_1: "fs1".to_string(),
-            foo_string_2: "fs2".to_string(),
-            foo_string_3: "fs3".to_string(),
-            foo_string_4: "fs4".to_string(),
-            foo_string_5: "fs5".to_string(),
-            foo_string_6: "fs6".to_string(),
-            foo_num1: 69.0,
-            foo_bool1: true,
-            foo_nested_1: Bar {
-                ..Default::default()
-            },
-        }
-    }
+    pub string_1: Option<String>,
+    pub bar_1: Option<Bar>,
 }
 
 #[derive(Debug, Deez)]
@@ -200,15 +167,15 @@ pub struct Task {
     #[deez_primary(key = "hash")]
     #[deez_gsi1(key = "range", position = 1)]
     #[deez_gsi2(key = "range", position = 1)]
-    pub task_id: String,
+    pub task_id: Option<String>,
     #[deez_primary(key = "range", position = 1)]
     #[deez_gsi1(key = "hash")]
     #[deez_gsi2(key = "range")]
-    pub project: String,
+    pub project: Option<String>,
     #[deez_primary(key = "range")]
     #[deez_gsi1(key = "range")]
     #[deez_gsi2(key = "hash")]
-    pub employee: String,
+    pub employee: Option<String>,
     pub description: String,
     #[deez_ignore(ignore)]
     pub some_metadata: String,
@@ -217,11 +184,11 @@ pub struct Task {
 impl Default for Task {
     fn default() -> Self {
         Task {
-            task_id: "".to_string(),
-            project: "".to_string(),
-            employee: "".to_string(),
-            description: "".to_string(),
-            some_metadata: "".to_string(),
+            task_id: Some("123".to_string()),
+            project: Some("wwe".to_string()),
+            employee: Some("ddp".to_string()),
+            description: "self high five!".to_string(),
+            some_metadata: "it's true".to_string(),
         }
     }
 }

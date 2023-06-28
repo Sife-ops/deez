@@ -1,10 +1,11 @@
+use crate::schemas::{
+    foo::{init, Task, TaskItems},
+    make_client,
+};
 use anyhow::Result;
 use aws_sdk_dynamodb::types::{PutRequest, WriteRequest};
 use deez::*;
 use std::collections::HashMap;
-
-use super::super::schemas::foo::{init, Task, TaskItems};
-use super::super::schemas::make_client;
 
 #[tokio::test]
 async fn delete() -> Result<()> {
@@ -15,15 +16,15 @@ async fn delete() -> Result<()> {
         c;
         writes:
             Task {
-                task_id: "aaa".to_string(),
-                project: "bbb".to_string(),
-                employee: "ccc".to_string(),
+                task_id: Some("aaa".to_string()),
+                project: Some("bbb".to_string()),
+                employee: Some("ccc".to_string()),
                 ..Default::default()
             },
             Task {
-                task_id: "aaa".to_string(),
-                project: "hhh".to_string(),
-                employee: "iii".to_string(),
+                task_id: Some("aaa".to_string()),
+                project: Some("hhh".to_string()),
+                employee: Some("iii".to_string()),
                 ..Default::default()
             };
         deletes:
@@ -32,16 +33,16 @@ async fn delete() -> Result<()> {
     ////////////////////////////////////////////////////////////////////////////
 
     remove!(c; Task {
-        task_id: "aaa".to_string(),
-        project: "hhh".to_string(),
-        employee: "iii".to_string(),
+        task_id: Some("aaa".to_string()),
+        project: Some("hhh".to_string()),
+        employee: Some("iii".to_string()),
         ..Default::default()
     })?;
 
     ////////////////////////////////////////////////////////////////////////////
 
     let keys = Task {
-        task_id: "aaa".to_string(),
+        task_id: Some("aaa".to_string()),
         ..Default::default()
     }
     .primary_keys();
