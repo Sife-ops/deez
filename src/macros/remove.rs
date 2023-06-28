@@ -1,3 +1,16 @@
+/// Convenience macro for delete with ConditionExpression that the item being
+/// deleted exists.
+/// 
+/// # Examples
+/// 
+/// ```
+/// remove!(c; Task {
+///     task_id: Some("87cb64a9-6431-406f-89d8-e91cb7ea944b".to_string()),
+///     project: Some("foo_project".to_string()),
+///     employee: Some("Mark".to_string()),
+///     ..Default::default()
+/// })?;
+/// ```
 #[macro_export]
 macro_rules! remove {
     (

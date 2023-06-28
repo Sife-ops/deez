@@ -1,3 +1,32 @@
+/// Convenience macro for batch write operations.
+/// 
+/// # Examples
+/// 
+/// ```
+/// batch_write!(
+///     client;
+///     writes:
+///         Task {
+///             task_id: Some("87cb64a9-6431-406f-89d8-e91cb7ea944b".to_string()),
+///             project: Some("foo_project".to_string()),
+///             employee: Some("Mark".to_string()),
+///             ..Default::default()
+///         };
+///     deletes:
+///         Task {
+///             task_id: Some("d9bb6b19-e306-4705-9773-960abe6c5078".to_string()),
+///             project: Some("foo_project".to_string()),
+///             employee: Some("Jimbo".to_string()),
+///             ..Default::default()
+///         },
+///         Task {
+///             task_id: Some("8ddbddaf-2072-4da1-b7c4-04aa31006b41".to_string()),
+///             project: Some("foo_project".to_string()),
+///             employee: Some("Steve".to_string()),
+///             ..Default::default()
+///         }
+/// )?;
+/// ```
 #[macro_export]
 macro_rules! batch_write {
     (

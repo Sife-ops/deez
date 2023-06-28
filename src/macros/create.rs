@@ -1,3 +1,21 @@
+/// Convenience macro for put with ConditionExpression parameter to ensure
+/// records are only “created” and not overwritten when inserting new records
+/// into the table.
+/// 
+/// # Examples
+/// 
+/// ```
+/// create!(
+///     client;
+///     Task {
+///         project: "foo_project".to_string(),
+///         employee: "e42069".to_string(),
+///         description: "nothin' but chillin' 20's".to_string(),
+///         some_metadata: "baz".to_string(),
+///         ..Default::default()
+///     }
+/// )?;
+/// ```
 #[macro_export]
 macro_rules! create {
     ($client:expr; $inst:expr) => {{

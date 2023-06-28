@@ -1,33 +1,17 @@
-// todo: eliminate unwraps, use span for errors(?)
-
 mod macros;
+mod types;
 
+use crate::types::*;
 use attribute_derive::Attribute;
-use macros::attr_derive;
+use macros::{attr_derive, compose_key, insert_gsi, insert_index, insert_read, read_attr};
 use proc_macro::{self, TokenStream};
-use quote::{format_ident, quote, ToTokens};
-use regex::Regex;
+use quote::{format_ident, quote};
 use std::{collections::HashMap, fmt::Debug};
-use syn::{DeriveInput, Field};
+use syn::DeriveInput;
 
 attr_derive!();
 
-struct IndexKeys {
-    hash: IndexKey,
-    range: IndexKey,
-}
-
-#[derive(Default)]
-struct IndexKey {
-    field: String,
-    composite: Vec<Composite>,
-}
-
-struct Composite {
-    position: usize,
-    syn_field: Field,
-}
-
+// todo: no unwrap and use span for errors(?)
 #[proc_macro_derive(
     Deez,
     attributes(
@@ -73,51 +57,6 @@ pub fn derive(input: TokenStream) -> TokenStream {
     let mut struct_impl = quote! {};
 
     if let Ok(s) = DeezSchema::from_attributes(&attrs) {
-        macro_rules! insert_index {
-            (
-                $index_meta:ident,
-                $index:expr,
-                $hash_name:expr,
-                $range_name:expr
-            ) => {
-                $index_meta.insert(
-                    $index.to_string(),
-                    IndexKeys {
-                        hash: IndexKey {
-                            field: $hash_name,
-                            ..Default::default()
-                        },
-                        range: IndexKey {
-                            field: $range_name,
-                            ..Default::default()
-                        },
-                    },
-                );
-            };
-        }
-
-        macro_rules! insert_gsi {
-            (
-                $index_meta:ident,
-                $index_name_fns:ident,
-                $index:expr,
-                $index_name:expr,
-                $hash_name:expr,
-                $range_name:expr
-            ) => {
-                if let Some(index_name) = $index_name {
-                    insert_index!($index_meta, $index, $hash_name.unwrap(), $range_name.unwrap()); // todo: remove unwrap
-                    let index_name_fn_name = format_ident!("{}_name", $index);
-                    $index_name_fns = quote! {
-                        #$index_name_fns
-                        pub fn #index_name_fn_name() -> String {
-                            #index_name.to_string()
-                        }
-                    };
-                }
-            };
-        }
-
         insert_index!(index_meta, "primary", s.primary_hash, s.primary_range);
         insert_gsi!(index_meta, index_name_fns, "gsi1", s.gsi1_name, s.gsi1_hash, s.gsi1_range);
         insert_gsi!(index_meta, index_name_fns, "gsi2", s.gsi2_name, s.gsi2_hash, s.gsi2_range);
@@ -143,26 +82,6 @@ pub fn derive(input: TokenStream) -> TokenStream {
         for field in struct_data.fields.iter() {
             // todo: remove length check?
             if field.attrs.len() > 0 {
-                macro_rules! read_attr {
-                    ($index_meta:ident, $field:expr, $index_attr:ident, $index:expr) => {
-                        if let Ok(attribute) = $index_attr::from_attributes(&$field.attrs) {
-                            let composite = Composite {
-                                position: attribute.position,
-                                syn_field: $field.clone(),
-                            };
-                            if let Some(index) = $index_meta.get_mut($index) {
-                                match attribute.key.as_str() {
-                                    "hash" => index.hash.composite.push(composite),
-                                    "range" => index.range.composite.push(composite),
-                                    _ => panic!("key must be either `hash` or `range`"),
-                                }
-                            } else {
-                                panic!("unknown index: {}", $index);
-                            }
-                        }
-                    };
-                }
-
                 read_attr!(index_meta, field, DeezPrimary, "primary");
                 read_attr!(index_meta, field, DeezGsi1, "gsi1");
                 read_attr!(index_meta, field, DeezGsi2, "gsi2");
@@ -192,42 +111,6 @@ pub fn derive(input: TokenStream) -> TokenStream {
             let entity = s.entity.clone();
             let hash_field = v.hash.field.clone();
             let range_field = v.range.field.clone();
-
-            macro_rules! compose_key {
-                ($index_key: expr) => {{
-                    let mut c = quote! {};
-
-                    for (i, _) in $index_key.composite.iter().enumerate() {
-                        let composite = match $index_key.composite.iter().find(|c| c.position == i) {
-                            Some(c) => c,
-                            None => panic!("missing composite for {} at position: {}", $index_key.field, i),
-                        };
-                        let field_ident = match composite.syn_field.ident.as_ref() {
-                            Some(i) => i,
-                            None => panic!("could not parse field ident for index: {}", $index_key.field),
-                        };
-                        let field_name = field_ident.to_string();
-
-                        c = quote! {
-                            #c
-                            {
-                                let value_string = self.#field_ident.to_string();
-                                if value_string == "" || value_string == "0" { // todo: sus
-                                    return index_key;
-                                }
-                                index_key.composite.push_str(&format!("#{}_{}", #field_name, value_string));
-                            }
-                        };
-                    }
-
-                    c = quote! {
-                        #c
-                        return index_key;
-                    };
-
-                    c
-                }};
-            }
 
             let composed_hash = compose_key!(v.hash);
             let composed_range = compose_key!(v.range);
@@ -308,248 +191,209 @@ pub fn derive(input: TokenStream) -> TokenStream {
             }
         }
 
-        let field_type = &field.ty;
-        let field_type_name = match field_type {
-            syn::Type::Path(p) => p.to_token_stream().to_string(),
-            _ => panic!("could not parse field type as path"),
-        };
-
+        let field_type = FieldType::new(&field.ty);
         let field_ident = field.ident.as_ref().unwrap();
         let field_name = field_ident.to_string();
+        let mut attribute_value_insert: proc_macro2::TokenStream;
+        let attribute_value_read: proc_macro2::TokenStream;
 
-        if field.attrs.len() > 0 {
-            if let Ok(attribute) = DeezVec::from_attributes(&field.attrs) {
-                match attribute.dynamo_type.as_str() {
-                    "list" => match field_type_name.as_str() {
-                        "Vec < String >" | "Vec :: < String >" => {
-                            field_inserts = quote! {
-                                #field_inserts
-                                m.insert(
-                                    #field_name.to_string(),
-                                    AttributeValue::L(
-                                        item
-                                            .#field_ident
-                                            .iter()
-                                            .map(|x| AttributeValue::S(x.clone()))
-                                            .collect::<Vec<AttributeValue>>()
-                                    )
-                                );
-                            };
-                            field_reads = quote! {
-                                #field_reads
-                                i.#field_ident = item[#field_name]
-                                    .as_l()
-                                    .unwrap()
-                                    .iter()
-                                    .map(|x| x.as_s().unwrap().clone())
-                                    .collect::<Vec<String>>();
-                            }
-                        }
-                        "Vec < f64 >" | "Vec :: < f64 >" => {
-                            field_inserts = quote! {
-                                #field_inserts
-                                m.insert(
-                                    #field_name.to_string(),
-                                    AttributeValue::L(
-                                        item
-                                            .#field_ident
-                                            .iter()
-                                            .map(|x| AttributeValue::N(x.to_string()))
-                                            .collect::<Vec<AttributeValue>>()
-                                    )
-                                );
-                            };
-                            field_reads = quote! {
-                                #field_reads
-                                i.#field_ident = item[#field_name]
-                                    .as_l()
-                                    .unwrap()
-                                    .iter()
-                                    .map(|x| x.as_n().unwrap().parse::<f64>().unwrap())
-                                    .collect::<Vec<f64>>();
-                            }
-                        }
-                        "Vec < Blob >" | "Vec :: < Blob >" => {
-                            field_inserts = quote! {
-                                #field_inserts
-                                m.insert(
-                                    #field_name.to_string(),
-                                    AttributeValue::L(
-                                        item
-                                            .#field_ident
-                                            .iter()
-                                            .map(|x| AttributeValue::B(x.clone()))
-                                            .collect::<Vec<AttributeValue>>()
-                                    )
-                                );
-                            };
-                            field_reads = quote! {
-                                #field_reads
-                                i.#field_ident = item[#field_name]
-                                    .as_l()
-                                    .unwrap()
-                                    .iter()
-                                    .map(|l| l.as_b().unwrap().clone())
-                                    .collect::<Vec<Blob>>();
-                            }
-                        }
-                        _ => {
-                            field_inserts = quote! {
-                                #field_inserts
-                                {
-                                    let mut v = Vec::new();
-                                    for x in item.#field_ident {
-                                        v.push(AttributeValue::M(x.into()));
-                                    }
-                                    m.insert(#field_name.to_string(), AttributeValue::L(v));
-                                }
-                            };
-
-                            // todo: match Vec::<T> syntax
-                            let re = Regex::new(r"(Vec < )(.*)( >)").unwrap();
-                            let caps = re.captures(&field_type_name).unwrap();
-                            let inner = format_ident!("{}", caps.get(2).unwrap().as_str());
-
-                            field_reads = quote! {
-                                #field_reads
-                                {
-                                    let mut v: Vec<#inner> = Vec::new();
-                                    for x in item[#field_name].as_l().unwrap() {
-                                        v.push(x.as_m().unwrap().into());
-                                    }
-                                    i.#field_ident = v;
-                                }
-                            };
-                        }
-                    },
-                    "set" => match field_type_name.as_str() {
-                        "Vec < String >" | "Vec :: < String >" => {
-                            field_inserts = quote! {
-                                #field_inserts
-                                m.insert(#field_name.to_string(), AttributeValue::Ss(item.#field_ident));
-                            };
-                            field_reads = quote! {
-                                #field_reads
-                                i.#field_ident = item[#field_name].as_ss().unwrap().clone();
-                            };
-                        }
-                        "Vec < f64 >" | "Vec :: < f64 >" => {
-                            field_inserts = quote! {
-                                #field_inserts
-                                m.insert(
-                                    #field_name.to_string(),
-                                    AttributeValue::Ns(
-                                        item
-                                            .#field_ident
-                                            .iter()
-                                            .map(|n| n.to_string())
-                                            .collect::<Vec<String>>()
-                                    )
-                                );
-                            };
-                            field_reads = quote! {
-                                #field_reads
-                                i.#field_ident = item[#field_name]
-                                    .as_ns()
-                                    .unwrap()
-                                    .iter()
-                                    .map(|n| n.parse::<f64>().unwrap())
-                                    .collect::<Vec<f64>>();
-                            };
-                        }
-                        "Vec < Blob >" | "Vec :: < Blob >" => {
-                            field_inserts = quote! {
-                                #field_inserts
-                                m.insert(#field_name.to_string(), AttributeValue::Bs(item.#field_ident));
-                            };
-                            field_reads = quote! {
-                                #field_reads
-                                i.#field_ident = item[#field_name].as_bs().unwrap().clone();
-                            };
-                        }
-                        _ => panic!("invalid set type: {}", field_type_name),
-                    },
-                    _ => panic!("unknown option `{}`, use `list` or `set`", field_type_name),
+        macro_rules! read_option {
+            ($variant:ident, $e:expr) => {{
+                let e = $e;
+                quote! {
+                    match &item[#field_name] {
+                        AttributeValue::$variant(inner) => Some(inner #e),
+                        AttributeValue::Null(_) => None,
+                        _ => panic!("unexpected AttributeValue variant"),
+                    }
                 }
-                continue;
+            }};
+        }
+
+        match field_type.inner_name.as_str() {
+            "String" => {
+                let list_insert = quote! {
+                    .iter()
+                    .map(|x| AttributeValue::S(x.clone()))
+                    .collect::<Vec<AttributeValue>>()
+                };
+                let list_read = quote! {
+                    .iter()
+                    .map(|x| x.as_s().unwrap().clone())
+                    .collect::<Vec<String>>()
+                };
+
+                insert_read!(
+                    field_ident, field_type, field.attrs, attribute_value_insert, attribute_value_read;
+
+                    insert_list: quote! { AttributeValue::L(item.#field_ident #list_insert) },
+                    read_list: quote! { item[#field_name].as_l().unwrap() #list_read },
+                    insert_set: quote! { AttributeValue::Ss(item.#field_ident) },
+                    read_set: quote! { item[#field_name].as_ss().unwrap().clone() },
+                    insert_scalar: quote! { AttributeValue::S(item.#field_ident) },
+                    read_scalar: quote! { item[#field_name].as_s().unwrap().clone() },
+
+                    insert_option_list: quote! { AttributeValue::L(inner #list_insert) },
+                    read_option_list: read_option!(L, quote! { #list_read }),
+                    insert_option_set: quote! { AttributeValue::Ss(inner) },
+                    read_option_set: read_option!(Ss, quote! { .clone() }),
+                    insert_option_scalar: quote! { AttributeValue::S(inner) },
+                    read_option_scalar: read_option!(S, quote! { .clone() })
+                );
+            }
+
+            "f64" => {
+                let list_insert = quote! {
+                    .iter()
+                    .map(|x| AttributeValue::N(x.to_string()))
+                    .collect::<Vec<AttributeValue>>()
+                };
+                let set_insert = quote! {
+                    .iter()
+                    .map(|n| n.to_string())
+                    .collect::<Vec<String>>()
+                };
+                let list_read = quote! {
+                    .iter()
+                    .map(|x| x.as_n().unwrap().parse::<f64>().unwrap())
+                    .collect::<Vec<f64>>()
+                };
+                let set_read = quote! {
+                    .iter()
+                    .map(|x| x.parse::<f64>().unwrap())
+                    .collect::<Vec<f64>>()
+                };
+
+                insert_read!(
+                    field_ident, field_type, field.attrs, attribute_value_insert, attribute_value_read;
+
+                    insert_list: quote! { AttributeValue::L(item.#field_ident #list_insert) },
+                    read_list: quote! { item[#field_name].as_l().unwrap() #list_read },
+                    insert_set: quote! { AttributeValue::Ns(item.#field_ident #set_insert) },
+                    read_set: quote! { item[#field_name].as_ns().unwrap() #set_read },
+                    insert_scalar: quote! { AttributeValue::N(item.#field_ident.to_string()) },
+                    read_scalar: quote! { item[#field_name].as_n().unwrap().parse::<f64>().unwrap() },
+
+                    insert_option_list: quote! { AttributeValue::L(inner #list_insert) },
+                    read_option_list: read_option!(L, quote! { #list_read }),
+                    insert_option_set: quote! { AttributeValue::Ns(inner #set_insert) },
+                    read_option_set: read_option!(Ns, quote! { #set_read }),
+                    insert_option_scalar: quote! { AttributeValue::N(inner.to_string()) },
+                    read_option_scalar: read_option!(N, quote! { .clone().parse::<f64>().unwrap() })
+                );
+            }
+
+            "bool" => {
+                let list_insert = quote! {
+                    .iter()
+                    .map(|x| AttributeValue::Bool(x.clone()))
+                    .collect::<Vec<AttributeValue>>()
+                };
+                let list_read = quote! {
+                    .iter()
+                    .map(|x| x.as_bool().unwrap().clone())
+                    .collect::<Vec<bool>>()
+                };
+
+                insert_read!(
+                    field_ident, field_type, field.attrs, attribute_value_insert, attribute_value_read;
+
+                    insert_list: quote! { AttributeValue::L(item.#field_ident #list_insert) },
+                    read_list: quote! { item[#field_name].as_l().unwrap() #list_read },
+                    insert_set: panic!("invalid type for `set`: {}", field_type.inner_name),
+                    read_set: panic!("invalid type for `set`: {}", field_type.inner_name),
+                    insert_scalar: quote! { AttributeValue::Bool(item.#field_ident) },
+                    read_scalar: quote! { item[#field_name].as_bool().unwrap().clone() },
+
+                    insert_option_list: quote! { AttributeValue::L(inner #list_insert) },
+                    read_option_list: read_option!(L, quote! { #list_read }),
+                    insert_option_set: panic!("invalid type for `set`: {}", field_type.inner_name),
+                    read_option_set: panic!("invalid type for `set`: {}", field_type.inner_name),
+                    insert_option_scalar: quote! { AttributeValue::Bool(inner) },
+                    read_option_scalar: read_option!(Bool, quote! { .clone() })
+                );
+            }
+
+            // todo: better pattern matching for "Blob"
+            "Blob" => {
+                let list_insert = quote! {
+                    .iter()
+                    .map(|x| AttributeValue::B(x.clone()))
+                    .collect::<Vec<AttributeValue>>()
+                };
+                let list_read = quote! {
+                    .iter()
+                    .map(|x| x.as_b().unwrap().clone())
+                    .collect::<Vec<Blob>>()
+                };
+
+                insert_read!(
+                    field_ident, field_type, field.attrs, attribute_value_insert, attribute_value_read;
+
+                    insert_list: quote! { AttributeValue::L(item.#field_ident #list_insert) },
+                    read_list: quote! { item[#field_name].as_l().unwrap() #list_read },
+                    insert_set: quote! { AttributeValue::Bs(item.#field_ident) },
+                    read_set: quote! { item[#field_name].as_bs().unwrap().clone() },
+                    insert_scalar: quote! { AttributeValue::B(item.#field_ident) },
+                    read_scalar: quote! { item[#field_name].as_b().unwrap().clone() },
+
+                    insert_option_list: quote! { AttributeValue::L(inner #list_insert) },
+                    read_option_list: read_option!(L, quote! { #list_read }),
+                    insert_option_set: quote! { AttributeValue::Bs(inner) },
+                    read_option_set: read_option!(Bs, quote! { .clone() }),
+                    insert_option_scalar: quote! { AttributeValue::B(inner) },
+                    read_option_scalar: read_option!(B, quote! { .clone() })
+                );
+            }
+
+            _ => {
+                let field_type_ident = format_ident!("{}", field_type.inner_name);
+                let list_insert = quote! {
+                    .into_iter()
+                    .map(|x| AttributeValue::M(x.into()))
+                    .collect::<Vec<AttributeValue>>()
+                };
+                let list_read = quote! {
+                    .iter()
+                    .map(|x| x.as_m().unwrap().into())
+                    .collect::<Vec<#field_type_ident>>()
+                };
+
+                insert_read!(
+                    field_ident, field_type, field.attrs, attribute_value_insert, attribute_value_read;
+
+                    insert_list: quote! { AttributeValue::L(item.#field_ident #list_insert) },
+                    read_list: quote! { item[#field_name].as_l().unwrap() #list_read },
+                    insert_set: panic!("invalid type for `set`: {}", field_type.inner_name),
+                    read_set: panic!("invalid type for `set`: {}", field_type.inner_name),
+                    insert_scalar: quote! { AttributeValue::M(item.#field_ident.into()) },
+                    read_scalar: quote! { item[#field_name].as_m().unwrap().into() },
+
+                    insert_option_list: quote! { AttributeValue::L(inner #list_insert) },
+                    read_option_list: quote! {
+                        match &item[#field_name] {
+                            AttributeValue::L(inner) => Some(inner #list_read),
+                            AttributeValue::Null(_) => None,
+                            _ => panic!("unexpected AttributeValue variant"),
+                        }
+                    },
+                    insert_option_set: panic!("invalid type for `set`: {}", field_type.inner_name),
+                    read_option_set: panic!("invalid type for `set`: {}", field_type.inner_name),
+                    insert_option_scalar: quote! { AttributeValue::M(inner.into()) },
+                    read_option_scalar: read_option!(M, quote! { .into() })
+                );
             }
         }
 
-        match field_type_name.as_str() {
-            "String" => {
-                field_inserts = quote! {
-                    #field_inserts
-                    m.insert(#field_name.to_string(), AttributeValue::S(item.#field_ident));
-                };
-                field_reads = quote! {
-                    #field_reads
-                    i.#field_ident = item[#field_name]
-                        .as_s()
-                        // .unwrap_or(&"".to_string())
-                        .unwrap()
-                        .clone();
-                };
-            }
-            "f64" => {
-                field_inserts = quote! {
-                    #field_inserts
-                    m.insert(#field_name.to_string(), AttributeValue::N(item.#field_ident.to_string()));
-                };
-                field_reads = quote! {
-                    #field_reads
-                    i.#field_ident = item[#field_name]
-                        .as_n()
-                        // .unwrap_or(&"0".to_string())
-                        .unwrap()
-                        .clone()
-                        .parse::<f64>()
-                        // .unwrap_or(0.0);
-                        .unwrap();
-                };
-            }
-            "bool" => {
-                field_inserts = quote! {
-                    #field_inserts
-                    m.insert(#field_name.to_string(), AttributeValue::Bool(item.#field_ident));
-                };
-                field_reads = quote! {
-                    #field_reads
-                    i.#field_ident = item[#field_name]
-                        .as_bool()
-                        // .unwrap_or(&false)
-                        .unwrap()
-                        .clone();
-                };
-            }
-            // "Vec < u8 >" | "Vec :: < u8 >" => {
-            "Blob" => {
-                field_inserts = quote! {
-                    #field_inserts
-                    m.insert(#field_name.to_string(), AttributeValue::B(item.#field_ident));
-                };
-                field_reads = quote! {
-                    #field_reads
-                    i.#field_ident = item[#field_name]
-                        .as_b()
-                        .unwrap()
-                        .clone();
-                };
-            }
-            _ => {
-                field_inserts = quote! {
-                    #field_inserts
-                    m.insert(#field_name.to_string(), AttributeValue::M(item.#field_ident.into()));
-                };
-                field_reads = quote! {
-                    #field_reads
-                    i.#field_ident = item[#field_name]
-                        .as_m()
-                        // .unwrap_or(&#field_type::default().into())
-                        .unwrap()
-                        .into();
-                };
-            }
-        }
+        field_inserts = quote! {
+            #field_inserts
+            m.insert(#field_name.to_string(), #attribute_value_insert);
+        };
+
+        field_reads = quote! {
+            #field_reads
+            i.#field_ident = #attribute_value_read;
+        };
     }
 
     let response_items = format_ident!("{}Items", ident);

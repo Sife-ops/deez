@@ -1,14 +1,23 @@
-use super::super::schemas::foo::{init, Foo, FooItems, Task};
-use super::super::schemas::make_client;
-use crate::schemas::foo::TaskItems;
+use crate::schemas::foo::{init, Foo, Task, TaskItems};
+use crate::schemas::make_client;
 use anyhow::{Ok, Result};
 use deez::*;
 use std::collections::HashMap;
 use std::sync::Arc;
 
+#[ignore]
 #[tokio::test]
 async fn temp() -> Result<()> {
-    // let a = AttributeValue::
+    init().await;
+    let client = make_client().await;
+
+    create!(client; Foo {
+        string_1: Some("foo".to_string()),
+        ..Default::default()
+    })?;
+
+    // let b: HashMap<String, AttributeValue> = a.into();
+    // println!("{:#?}", b);
 
     Ok(())
 }
@@ -20,17 +29,17 @@ async fn create() -> Result<()> {
 
     // task
     create!(client; Task {
-        task_id: "123".to_string(),
-        project: "foo_proj".to_string(),
-        employee: "foo_empl".to_string(),
+        task_id: Some("123".to_string()),
+        project: Some("foo_proj".to_string()),
+        employee: Some("foo_empl".to_string()),
         description: "foo_desc".to_string(),
         some_metadata: "abcd".to_string(),
     })?;
 
     let task_keys = Task {
-        task_id: "123".to_string(),
-        project: "foo_proj".to_string(),
-        employee: "foo_empl".to_string(),
+        task_id: Some("123".to_string()),
+        project: Some("foo_proj".to_string()),
+        employee: Some("foo_empl".to_string()),
         ..Default::default()
     }
     .primary_keys();
@@ -58,48 +67,11 @@ async fn create() -> Result<()> {
 
     {
         let first = tasks.first().unwrap();
-        assert_eq!(first.task_id, "123");
-        assert_eq!(first.project, "foo_proj");
-        assert_eq!(first.employee, "foo_empl");
+        assert_eq!(first.task_id, Some("123".to_string()));
+        assert_eq!(first.project, Some("foo_proj".to_string()));
+        assert_eq!(first.employee, Some("foo_empl".to_string()));
         assert_eq!(first.description, "foo_desc");
-        assert_eq!(first.some_metadata, "");
-    }
-
-    // foo
-    create!(client; Foo {
-        ..Default::default()
-    })?;
-
-    let foo_keys = Foo {
-        ..Default::default()
-    }
-    .primary_keys();
-
-    let foos = vec_from_query!(
-        client
-            .query()
-            .table_name(Foo::table_name())
-            .key_condition_expression("#pk = :pk and begins_with(#sk, :sk)")
-            .set_expression_attribute_names(Some(HashMap::from([
-                ("#pk".to_string(), foo_keys.hash.field()),
-                ("#sk".to_string(), foo_keys.range.field()),
-            ])))
-            .set_expression_attribute_values(Some(HashMap::from([
-                (":pk".to_string(), foo_keys.hash.av()),
-                (":sk".to_string(), foo_keys.range.av()),
-            ])))
-            .send()
-            .await?
-
-        => FooItems
-    );
-
-    // println!("{:#?}", foos);
-
-    {
-        let first = foos.first().unwrap();
-        assert_eq!(first.foo_nested_1.baz_1.baz_string_1, "baz");
-        // todo: other fields
+        assert_eq!(first.some_metadata, "it's true");
     }
 
     Ok(())
@@ -115,14 +87,12 @@ async fn create_with_threads() -> Result<()> {
         let cc = Arc::clone(&c);
 
         v.push(tokio::spawn(async move {
-            create!(cc; Foo {
-                foo_string_1: "foo".to_string(),
-                foo_string_2: i.to_string(),
-                foo_string_3: i.to_string(),
-                foo_string_4: i.to_string(),
-                foo_string_5: i.to_string(),
-                foo_string_6: i.to_string(),
-                ..Default::default()
+            create!(cc; Task {
+                task_id: Some("foo".to_string()),
+                project: Some(i.to_string()),
+                employee: Some(i.to_string()),
+                description:i.to_string(),
+                some_metadata:i.to_string(),
             })
             .unwrap();
         }));
@@ -132,8 +102,8 @@ async fn create_with_threads() -> Result<()> {
         i.await?;
     }
 
-    let f = Foo {
-        foo_string_1: "foo".to_string(),
+    let f = Task {
+        task_id: Some("foo".to_string()),
         ..Default::default()
     }
     .primary_keys();
@@ -141,14 +111,14 @@ async fn create_with_threads() -> Result<()> {
     let i = vec_from_query!(
         c
             .query()
-            .table_name(Foo::table_name())
+            .table_name(Task::table_name())
             .key_condition_expression("#pk = :pk")
             .set_expression_attribute_names(Some(HashMap::from([("#pk".to_string(), f.hash.field())])))
             .set_expression_attribute_values(Some(HashMap::from([(":pk".to_string(), f.hash.av())])))
             .send()
             .await?
 
-        => FooItems
+        => TaskItems
     );
 
     // println!("{}", i.len());

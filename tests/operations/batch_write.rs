@@ -1,10 +1,11 @@
+use crate::schemas::{
+    foo::{init, Task, TaskItems},
+    make_client,
+};
 use anyhow::Result;
 use aws_sdk_dynamodb::types::{DeleteRequest, PutRequest, WriteRequest};
 use deez::*;
 use std::collections::HashMap;
-
-use super::super::schemas::foo::{init, Task, TaskItems};
-use super::super::schemas::make_client;
 
 #[tokio::test]
 async fn batch_write() -> Result<()> {
@@ -12,7 +13,7 @@ async fn batch_write() -> Result<()> {
     let c = make_client().await;
 
     let keys = Task {
-        task_id: "aaa".to_string(),
+        task_id: Some("aaa".to_string()),
         ..Default::default()
     }
     .primary_keys();
@@ -35,21 +36,21 @@ async fn batch_write() -> Result<()> {
         c;
         writes:
             Task {
-                task_id: "aaa".to_string(),
-                project: "bbb".to_string(),
-                employee: "ccc".to_string(),
+                task_id: Some("aaa".to_string()),
+                project: Some("bbb".to_string()),
+                employee: Some("ccc".to_string()),
                 ..Default::default()
             },
             Task {
-                task_id: "aaa".to_string(),
-                project: "fff".to_string(),
-                employee: "ggg".to_string(),
+                task_id: Some("aaa".to_string()),
+                project: Some("fff".to_string()),
+                employee: Some("ggg".to_string()),
                 ..Default::default()
             },
             Task {
-                task_id: "aaa".to_string(),
-                project: "hhh".to_string(),
-                employee: "iii".to_string(),
+                task_id: Some("aaa".to_string()),
+                project: Some("hhh".to_string()),
+                employee: Some("iii".to_string()),
                 ..Default::default()
             };
         deletes:
@@ -66,24 +67,24 @@ async fn batch_write() -> Result<()> {
 
     batch_write!(
         c;
-        writes: 
+        writes:
             Task {
-                task_id: "aaa".to_string(),
-                project: "jjj".to_string(),
-                employee: "kkk".to_string(),
+                task_id: Some("aaa".to_string()),
+                project: Some("jjj".to_string()),
+                employee: Some("kkk".to_string()),
                 ..Default::default()
             };
         deletes:
             Task {
-                task_id: "aaa".to_string(),
-                project: "bbb".to_string(),
-                employee: "ccc".to_string(),
+                task_id: Some("aaa".to_string()),
+                project: Some("bbb".to_string()),
+                employee: Some("ccc".to_string()),
                 ..Default::default()
             },
             Task {
-                task_id: "aaa".to_string(),
-                project: "hhh".to_string(),
-                employee: "iii".to_string(),
+                task_id: Some("aaa".to_string()),
+                project: Some("hhh".to_string()),
+                employee: Some("iii".to_string()),
                 ..Default::default()
             }
     )?;
