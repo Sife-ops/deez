@@ -151,10 +151,3 @@ async fn main() -> Result<()> {
     Ok(())
 }
 ```
-
-## Getting Shwifty (Aware)
-
-I highly recommend you peruse the `tests` folder for more usage examples, as the
-generated docs for macros won't be very helpful.
-
-<!-- Read the full docs on [docs.rs](https://docs.rs/deez/0.1.0/deez/struct.Deez.html) -->
